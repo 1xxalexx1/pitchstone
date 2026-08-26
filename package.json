@@ -1,0 +1,13 @@
+{
+  "name": "hybrid-editor",
+  "version": "1.0.0",
+  "description": "Markdown editor with HTML editing capabilities and live preview",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^34.0.0"
+  },
+  "license": "MIT"
+}
