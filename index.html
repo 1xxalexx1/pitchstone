@@ -3,14 +3,98 @@
 <head>
   <meta charset="utf-8">
   <title>Hybrid Editor</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      height: 100%;
+      margin: 0;
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+      background: #161412;
+      color: #d8d2c8;
+      font: 13px/1.4 ui-sans-serif, system-ui, sans-serif;
+    }
+    #toolbar {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      padding: 8px 10px;
+      border-bottom: 1px solid #3a3530;
+      background: #1c1a17;
+    }
+    button {
+      background: #2a2723;
+      color: #d8d2c8;
+      border: 1px solid #6b5a38;
+      padding: 4px 10px;
+      font: inherit;
+    }
+    button:hover { background: #35322c; }
+    button:focus-visible { outline: 2px solid #c4a35a; outline-offset: 1px; }
+    #path, #status {
+      margin: 0;
+    }
+    #path { color: #9a9186; }
+    #status { margin-left: auto; color: #c4a35a; }
+    #workspace {
+      flex: 1;
+      display: flex;
+      min-height: 0;
+    }
+    #files {
+      width: 200px;
+      margin: 0;
+      padding: 8px 0;
+      list-style: none;
+      overflow: auto;
+      border-right: 1px solid #3a3530;
+      background: #1c1a17;
+    }
+    #files li {
+      padding: 3px 10px;
+    }
+    #files li:hover { background: #2a2723; }
+    #split {
+      flex: 1;
+      display: flex;
+      min-width: 0;
+    }
+    #editor, #preview {
+      flex: 1;
+      min-width: 0;
+      border: 0;
+    }
+    #editor {
+      resize: none;
+      padding: 12px;
+      background: #161412;
+      color: #e8e2d6;
+      font: 14px/1.5 ui-monospace, Menlo, Consolas, monospace;
+      outline: none;
+    }
+    #preview {
+      border-left: 1px solid #3a3530;
+      background: #1e1c19;
+    }
+  </style>
 </head>
 <body>
-  <button type="button" id="open">Open</button>
-  <button type="button" id="save">Save</button>
-  <p id="path">no folder yet</p>
-  <p id="status"></p>
-  <ul id="files"></ul>
-  <textarea id="editor" rows="16" cols="80" spellcheck="false"></textarea>
+  <div id="toolbar">
+    <button type="button" id="open">Open</button>
+    <button type="button" id="save">Save</button>
+    <p id="path">no folder yet</p>
+    <p id="status"></p>
+  </div>
+  <div id="workspace">
+    <ul id="files"></ul>
+    <div id="split">
+      <textarea id="editor" spellcheck="false" aria-label="Markdown"></textarea>
+      <iframe id="preview" sandbox title="Preview"></iframe>
+    </div>
+  </div>
+  <script src="node_modules/marked/lib/marked.umd.js"></script>
   <script src="renderer.js"></script>
 </body>
 </html>

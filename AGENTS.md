@@ -21,10 +21,10 @@ code must stay presentable, readable, and honest.
 |---|---|
 | `main.js` | Window, vault selection dialog, IPC: read-dir / read-file / write-file (all vault-guarded) |
 | `preload.js` | contextBridge exposing `window.api` |
-| `renderer.js` | Open folder, flat file list, click to open into textarea, save (button + Cmd/Ctrl+S) |
-| `index.html` | Bare layout: Open/Save buttons, path + status lines, file list, textarea |
+| `renderer.js` | Open folder, file list, open/save, live markdown preview (marked + 100ms debounce) |
+| `index.html` | Dark split layout: file list, editor left, sandboxed preview iframe right |
 
-Working: open a vault, list its files, open a file, edit, save back. No preview yet.
+Working: open a vault, list files, open, edit, save, live markdown preview.
 Git: baseline commit exists; every milestone below gets its own commit.
 
 ## Rules for this project
@@ -48,9 +48,8 @@ Git: baseline commit exists; every milestone below gets its own commit.
   read/write IPC (DONE in scaffold).
 - [x] **M2 — File list + open + save**: flat vault file list, click to open, save via
   button and Cmd/Ctrl+S (DONE in scaffold).
-- [ ] **M3 — Split view + live preview**: editor left, preview right; preview is a
-  sandboxed `<iframe>` rendering `marked(content)` with a debounce (~100ms). No new
-  concepts beyond iframe + marked. **NEXT.**
+- [x] **M3 — Split view + live preview**: editor left, preview right; preview is a
+  sandboxed `<iframe>` rendering `marked(content)` with a debounce (~100ms).
 - [ ] **M4 — Tabs**: Markdown / HTML / CSS+JS tabs above the editor; CSS+JS content
   injected into the preview iframe (style/script tags); HTML tab injects raw HTML when
   used. This is the "batshit crazy HTML" tab — full control, sandboxed iframe.

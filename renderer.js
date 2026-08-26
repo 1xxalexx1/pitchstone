@@ -1,4 +1,32 @@
 let currentPath = null
+const editor = document.getElementById('editor')
+const preview = document.getElementById('preview')
+const PREVIEW_DELAY_MS = 100
+const PREVIEW_CSS =
+  'html,body{margin:0}' +
+  'body{padding:12px 16px;font:15px/1.45 ui-sans-serif,system-ui,sans-serif;' +
+  'color:#d8d2c8;background:#1e1c19}' +
+  'a{color:#d4b36a}' +
+  'code,pre{font-family:ui-monospace,Menlo,Consolas,monospace;background:#2a2723}' +
+  'pre{padding:8px;overflow:auto}' +
+  'img{max-width:100%}'
+
+let previewTimer = null
+
+function updatePreview() {
+  const html = marked.parse(editor.value)
+  preview.srcdoc =
+    '<!DOCTYPE html><html><head><meta charset="utf-8"><style>' +
+    PREVIEW_CSS +
+    '</style></head><body>' +
+    html +
+    '</body></html>'
+}
+
+function schedulePreview() {
+  clearTimeout(previewTimer)
+  previewTimer = setTimeout(updatePreview, PREVIEW_DELAY_MS)
+}
 
 document.getElementById('open').addEventListener('click', async () => {
   const folder = await window.api.selectVault()
@@ -22,12 +50,13 @@ document.getElementById('open').addEventListener('click', async () => {
       li.addEventListener('click', async () => {
         const file = await window.api.readFile(item.path)
         if (file.error) {
-          document.getElementById('editor').value = file.error
+          editor.value = file.error
           currentPath = null
           return
         }
         currentPath = item.path
-        document.getElementById('editor').value = file.content
+        editor.value = file.content
+        updatePreview()
         document.getElementById('status').textContent = item.name
       })
     }
@@ -42,7 +71,7 @@ async function saveFile() {
   }
   const result = await window.api.writeFile(
     currentPath,
-    document.getElementById('editor').value
+    editor.value
   )
   document.getElementById('status').textContent = result.error || 'Saved'
 }
@@ -57,3 +86,6 @@ window.addEventListener('keydown', (event) => {
     void saveFile()
   }
 })
+
+editor.addEventListener('input', schedulePreview)
+updatePreview()
