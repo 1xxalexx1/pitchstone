@@ -1,0 +1,4 @@
+{
+  "name": "Pitchstone",
+  "install": "npm ci"
+}
