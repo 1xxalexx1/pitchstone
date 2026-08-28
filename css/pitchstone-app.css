@@ -119,7 +119,12 @@ html.wco .ps-rail--utility:not([hidden]) .ps-utility-hdr {
   border: 0;
   background: transparent;
   color: var(--ps-text);
-  font: 500 13px/1 var(--ps-ui-font);
+  font: 600 13px/1 var(--ps-ui-font);
+  box-shadow: none;
+}
+.ps-topbar--main .ps-tab[aria-selected="true"] {
+  background: transparent;
+  box-shadow: none;
 }
 .ps-titlebar__split {
   width: 1px;
@@ -542,13 +547,16 @@ html[data-shell="ide"] .ps-editor-pane { flex: 1; }
 }
 .ps-segment button:hover { color: var(--ps-text); }
 .ps-segment button[aria-selected="true"] {
-  background: var(--ps-window);
+  background: var(--cs-card);
   color: var(--ps-text);
   font-weight: 500;
   box-shadow: 0 1px 1px oklch(0 0 0 / 0.08);
 }
+html.dark .ps-segment {
+  background: oklch(1 0 0 / 0.06);
+}
 html.dark .ps-segment button[aria-selected="true"] {
-  background: oklch(1 0 0 / 0.08);
+  background: oklch(1 0 0 / 0.12);
   box-shadow: none;
 }
 .ps-segment__flag { display: inline-block; margin-left: 5px; width: 5px; height: 5px; border-radius: 50%; vertical-align: middle; }
