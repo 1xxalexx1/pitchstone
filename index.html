@@ -18,44 +18,12 @@
   <link rel="stylesheet" href="css/pitchstone.css">
 </head>
 <body>
-  <div class="ps-mac-drag" aria-hidden="true"></div>
-  <header class="ps-titlebar" id="toolbar">
-    <div class="ps-titlebar__actions">
-      <button type="button" class="ps-tool" id="open" title="Open vault" aria-label="Open vault">
-        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 4.5h4.2l1.3 1.6H13.5v6.4H2.5z"/></svg>
-      </button>
-      <button type="button" class="ps-tool" id="save" title="Save" aria-label="Save">
-        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 3.5h7.2L12.5 5.3V12.5h-9z"/><path d="M5.5 3.5v3.2h5V3.5"/><path d="M5.5 12.5v-3.4h5v3.4"/></svg>
-      </button>
-      <button type="button" class="ps-tool" id="export-md" title="Export Markdown" aria-label="Export Markdown">
-        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v8"/><path d="M5 7.5l3 3 3-3"/><path d="M3.5 13.5h9"/></svg>
-      </button>
-      <span class="ps-titlebar__split"></span>
-      <button type="button" class="ps-tool ps-tool--accent" id="new-file" title="New note" aria-label="New note">
-        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 2.5h5.2L12.5 5.3V13.5h-8z"/><path d="M9.5 2.5V5.5h3"/><path d="M8 8v4"/><path d="M6 10h4"/></svg>
-      </button>
-      <button type="button" class="ps-tool" id="new-folder" title="New folder" aria-label="New folder">
-        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 4.5h4.2l1.3 1.6H13.5v6.4H2.5z"/><path d="M8 7.5v5"/><path d="M5.5 10h5"/></svg>
-      </button>
-      <button type="button" class="ps-tool" id="rename-file" title="Rename" aria-label="Rename">
-        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 12.8l.7-2.6 6.4-6.4 1.9 1.9-6.4 6.4z"/><path d="M9.4 5.1l1.9 1.9"/></svg>
-      </button>
-      <button type="button" class="ps-tool ps-tool--danger" id="delete-file" title="Delete" aria-label="Delete">
-        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 5.5h9"/><path d="M6 5.5V3.5h4v2"/><path d="M5 5.5l.5 7.5h5l.5-7.5"/></svg>
-      </button>
-      <span class="ps-titlebar__split"></span>
-      <div id="shell-toggle" class="ps-segment" role="group" aria-label="Shell">
-        <button type="button" data-shell="vault" aria-selected="true">Vault</button>
-        <button type="button" data-shell="ide" aria-selected="false">Code</button>
-      </div>
-      <button type="button" class="ps-tool" id="theme-toggle" title="Toggle theme" aria-label="Toggle theme">
-        <svg class="ps-ico-sun" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="2.6"/><path d="M8 2.2v1.4M8 12.4v1.4M2.2 8h1.4M12.4 8h1.4M3.9 3.9l1 1M11.1 11.1l1 1M12.1 3.9l-1 1M4.9 11.1l-1 1"/></svg>
-        <svg class="ps-ico-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.6 10.2A4.6 4.6 0 0 1 6.2 4.1 4.7 4.7 0 1 0 11.6 10.2z"/></svg>
-      </button>
-    </div>
-  </header>
   <div id="workspace" class="ps-workspace">
-    <aside id="icon-rail" class="ps-rail ps-rail--ribbon" aria-label="Navigate">
+    <div class="ps-nav">
+    <header class="ps-topbar ps-topbar--nav">
+      <p id="path" class="ps-topbar__title">no folder yet</p>
+    </header>
+    <div id="icon-rail" class="ps-nav-tools" aria-label="Navigate">
       <button type="button" class="ps-rail__icon" id="files-open" aria-current="true" title="Files">
         <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 4.5h4.2l1.3 1.6H13.5v6.4H2.5z"/></svg>
         <span class="ps-rail__label">Files</span>
@@ -72,23 +40,12 @@
         <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.2h10v6.2H7.2L4.2 13V10.4H3z"/></svg>
         <span class="ps-rail__label">Agent</span>
       </button>
-      <button type="button" class="ps-rail__icon" title="Plugins" disabled>
-        <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="2.5" width="4.4" height="4.4" rx="0.8"/><rect x="9.1" y="2.5" width="4.4" height="4.4" rx="0.8"/><rect x="2.5" y="9.1" width="4.4" height="4.4" rx="0.8"/><rect x="9.1" y="9.1" width="4.4" height="4.4" rx="0.8"/></svg>
-        <span class="ps-rail__label">Plugins</span>
-      </button>
-      <span class="ps-rail__grow"></span>
-      <button type="button" class="ps-rail__icon" title="Settings" disabled>
-        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10"/><circle cx="6.5" cy="4.5" r="1.2"/><path d="M3 8h10"/><circle cx="10" cy="8" r="1.2"/><path d="M3 11.5h10"/><circle cx="7.5" cy="11.5" r="1.2"/></svg>
-        <span class="ps-rail__label">Settings</span>
-      </button>
-    </aside>
+    </div>
     <aside id="tree-rail" class="ps-rail ps-rail--tree" aria-label="Files">
       <div id="open-notes" hidden>
         <div class="ps-panel-hdr">OPEN NOTES</div>
         <ul id="open-notes-list" class="ps-tree ps-tree--open"></ul>
       </div>
-      <div class="ps-panel-hdr">FILES</div>
-      <div id="path" class="ps-vault-path">no folder yet</div>
       <ul id="files" class="ps-tree"></ul>
       <div id="unresolved-wrap" hidden>
         <div class="ps-panel-hdr">UNRESOLVED LINKS</div>
@@ -96,31 +53,61 @@
       </div>
     </aside>
     <aside id="graph-rail" class="ps-rail ps-rail--tree ps-rail--graph" hidden aria-label="Graph">
-      <div class="ps-panel-hdr">GRAPH</div>
       <div id="graph" class="ps-graph"></div>
     </aside>
+    </div>
     <div id="centre" class="ps-centre">
       <div id="empty-vault" class="ps-brand" hidden>
-        <div class="grain-overlay"></div>
         <div class="ps-brand__inner">
-          <h2 class="brand-display">What are we writing today?</h2>
+          <h2>What are we writing today?</h2>
           <p>Open a vault. Notes are HTML on disk. Markdown is a view.</p>
           <button type="button" class="bcs-btn bcs-btn-primary" id="empty-open">Open vault</button>
         </div>
       </div>
-      <div class="ps-tabstrip" role="tablist" aria-label="Open notes">
+      <header class="ps-topbar ps-topbar--main" id="toolbar">
         <button type="button" class="ps-tab" id="note-tab" aria-selected="true">
           <span id="note-tab-label">untitled</span>
           <span id="note-dirty" class="ps-dot" hidden></span>
         </button>
-      </div>
-      <div class="ps-viewbar">
         <div id="tabs" class="ps-segment" role="tablist" aria-label="Editor mode">
           <button type="button" role="tab" data-tab="markdown" aria-selected="true" aria-controls="editor">Markdown</button>
           <button type="button" role="tab" data-tab="html" aria-selected="false" aria-controls="editor">HTML</button>
           <button type="button" role="tab" data-tab="cssjs" aria-selected="false" aria-controls="editor">CSS+JS</button>
         </div>
-      </div>
+        <div class="ps-topbar__actions">
+          <button type="button" class="ps-tool" id="open" title="Open vault" aria-label="Open vault">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 4.5h4.2l1.3 1.6H13.5v6.4H2.5z"/></svg>
+          </button>
+          <button type="button" class="ps-tool" id="save" title="Save" aria-label="Save">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 3.5h7.2L12.5 5.3V12.5h-9z"/><path d="M5.5 3.5v3.2h5V3.5"/><path d="M5.5 12.5v-3.4h5v3.4"/></svg>
+          </button>
+          <button type="button" class="ps-tool" id="export-md" title="Export Markdown" aria-label="Export Markdown">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v8"/><path d="M5 7.5l3 3 3-3"/><path d="M3.5 13.5h9"/></svg>
+          </button>
+          <span class="ps-titlebar__split"></span>
+          <button type="button" class="ps-tool" id="new-file" title="New note" aria-label="New note">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 2.5h5.2L12.5 5.3V13.5h-8z"/><path d="M9.5 2.5V5.5h3"/><path d="M8 8v4"/><path d="M6 10h4"/></svg>
+          </button>
+          <button type="button" class="ps-tool" id="new-folder" title="New folder" aria-label="New folder">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 4.5h4.2l1.3 1.6H13.5v6.4H2.5z"/><path d="M8 7.5v5"/><path d="M5.5 10h5"/></svg>
+          </button>
+          <button type="button" class="ps-tool" id="rename-file" title="Rename" aria-label="Rename">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 12.8l.7-2.6 6.4-6.4 1.9 1.9-6.4 6.4z"/><path d="M9.4 5.1l1.9 1.9"/></svg>
+          </button>
+          <button type="button" class="ps-tool ps-tool--danger" id="delete-file" title="Delete" aria-label="Delete">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 5.5h9"/><path d="M6 5.5V3.5h4v2"/><path d="M5 5.5l.5 7.5h5l.5-7.5"/></svg>
+          </button>
+          <span class="ps-titlebar__split"></span>
+          <div id="shell-toggle" class="ps-segment" role="group" aria-label="Shell">
+            <button type="button" data-shell="vault" aria-selected="true">Vault</button>
+            <button type="button" data-shell="ide" aria-selected="false">Code</button>
+          </div>
+          <button type="button" class="ps-tool" id="theme-toggle" title="Toggle theme" aria-label="Toggle theme">
+            <svg class="ps-ico-sun" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="2.6"/><path d="M8 2.2v1.4M8 12.4v1.4M2.2 8h1.4M12.4 8h1.4M3.9 3.9l1 1M11.1 11.1l1 1M12.1 3.9l-1 1M4.9 11.1l-1 1"/></svg>
+            <svg class="ps-ico-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.6 10.2A4.6 4.6 0 0 1 6.2 4.1 4.7 4.7 0 1 0 11.6 10.2z"/></svg>
+          </button>
+        </div>
+      </header>
       <nav id="breadcrumbs" class="ps-breadcrumbs" hidden aria-label="Path"></nav>
       <div id="split" class="ps-split">
         <div id="editor-pane" class="ps-editor-pane">

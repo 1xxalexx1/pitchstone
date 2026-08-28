@@ -4,10 +4,10 @@
 
 .bcs-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;border-radius:var(--cs-radius-md);font-family:var(--cs-font-family-body);font-weight:var(--cs-font-weight-regular);font-size:13px;min-height:30px;padding:0 10px;border:none;cursor:pointer;transition:background-color .15s,color .15s,border-color .15s;box-shadow:0 1px 2px oklch(0 0 0/.04)}
 .bcs-btn:disabled{pointer-events:none;opacity:.4}
-.bcs-btn-default{background:var(--cs-ink-900);color:var(--cs-white)}
-.bcs-btn-default:hover{background:var(--cs-ink-700)}
-.dark .bcs-btn-default{background:var(--cs-ink-100);color:var(--cs-ink-900)}
-.dark .bcs-btn-default:hover{background:var(--cs-ink-200)}
+.bcs-btn-default{background:var(--cs-foreground);color:var(--cs-card)}
+.bcs-btn-default:hover{filter:brightness(1.08)}
+.dark .bcs-btn-default{background:#fafafa;color:#18181b}
+.dark .bcs-btn-default:hover{background:#e4e4e7}
 .bcs-btn-primary{background:var(--cs-primary);color:var(--cs-primary-foreground);box-shadow:0 1px 2px oklch(0 0 0/.06)}
 .bcs-btn-primary:hover{filter:brightness(1.08)}
 .bcs-btn-outline{background:transparent;color:var(--cs-foreground);border:1px solid var(--cs-border);box-shadow:none}

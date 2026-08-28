@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron')
+const { app, BrowserWindow, ipcMain, dialog, Menu, nativeTheme } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const scan = require('./vault-scan')
@@ -10,32 +10,76 @@ let vaultRoot = null
 const EMPTY_NOTE =
   '<!DOCTYPE html>\n<html>\n<head>\n<meta charset="utf-8">\n</head>\n<body>\n</body>\n</html>\n'
 
+const TITLEBAR_HEIGHT = 40
+const TITLEBAR_COLOR = '#01000000'
+const TITLEBAR_LIGHT_SYMBOL = '#1f2937'
+const TITLEBAR_DARK_SYMBOL = '#f8fafc'
+
+function windowBg() {
+  return nativeTheme.shouldUseDarkColors ? '#0a0a0a' : '#ffffff'
+}
+
+function titleBarOpts() {
+  if (process.platform === 'darwin') {
+    return {
+      titleBarStyle: 'hiddenInset',
+      trafficLightPosition: { x: 16, y: 18 },
+    }
+  }
+  return {
+    titleBarStyle: 'hidden',
+    titleBarOverlay: {
+      color: TITLEBAR_COLOR,
+      height: TITLEBAR_HEIGHT,
+      symbolColor: nativeTheme.shouldUseDarkColors
+        ? TITLEBAR_DARK_SYMBOL
+        : TITLEBAR_LIGHT_SYMBOL,
+    },
+  }
+}
+
+function syncAppearance() {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  mainWindow.setBackgroundColor(windowBg())
+  const overlay = titleBarOpts().titleBarOverlay
+  if (!overlay) return
+  try {
+    mainWindow.setTitleBarOverlay(overlay)
+  } catch (_) {
+    /* overlay unsupported on this build */
+  }
+}
+
 function createWindow() {
-  const isMac = process.platform === 'darwin'
   mainWindow = new BrowserWindow({
     width: 1100,
     height: 720,
+    minWidth: 840,
+    minHeight: 620,
     title: 'Pitchstone',
-    titleBarStyle: isMac ? 'hiddenInset' : 'default',
-    trafficLightPosition: isMac ? { x: 16, y: 12 } : undefined,
-    autoHideMenuBar: !isMac,
+    show: false,
+    autoHideMenuBar: true,
+    backgroundColor: windowBg(),
+    ...(process.platform === 'darwin' ? { disableAutoHideCursor: true } : {}),
+    ...titleBarOpts(),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
     },
   })
+  mainWindow.once('ready-to-show', () => {
+    if (!mainWindow.isDestroyed()) mainWindow.show()
+  })
+  mainWindow.on('enter-full-screen', () => {
+    mainWindow.webContents.send('win-fullscreen', true)
+  })
+  mainWindow.on('leave-full-screen', () => {
+    mainWindow.webContents.send('win-fullscreen', false)
+  })
   mainWindow.loadFile(path.join(__dirname, 'index.html'), {
     query: { p: process.platform },
   })
-  if (isMac) {
-    mainWindow.webContents.on('did-finish-load', () => {
-      void mainWindow.webContents.insertCSS(
-        '.ps-titlebar,.ps-mac-drag{display:none!important}' +
-          'html{--ps-titlebar-h:0px}'
-      )
-    })
-  }
 }
 
 function sendMenu(id) {
@@ -202,6 +246,15 @@ app.whenReady().then(async () => {
   Menu.setApplicationMenu(buildMenu())
   await loadVaultRoot()
   createWindow()
+})
+
+ipcMain.handle('set-dark', (_event, dark) => {
+  nativeTheme.themeSource = dark ? 'dark' : 'light'
+  syncAppearance()
+})
+
+nativeTheme.on('updated', () => {
+  syncAppearance()
 })
 
 ipcMain.handle('select-vault', async () => {

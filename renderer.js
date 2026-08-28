@@ -532,6 +532,7 @@ function applyTheme(dark) {
     )
   }
   localStorage.setItem('pitchstone-theme', dark ? 'dark' : 'light')
+  if (window.api.setDark) void window.api.setDark(dark)
   updatePreview()
 }
 
@@ -930,9 +931,6 @@ function applyShell(shell) {
   const ide = shell === 'ide'
   document.documentElement.dataset.shell = ide ? 'ide' : 'vault'
   localStorage.setItem('pitchstone-shell', ide ? 'ide' : 'vault')
-  const rail = document.getElementById('icon-rail')
-  rail.classList.toggle('ps-rail--ribbon', !ide)
-  rail.classList.toggle('ps-rail--activity', ide)
   document.getElementById('open-notes').hidden = !ide
   document.getElementById('breadcrumbs').hidden = !ide
   document.getElementById('dock').hidden = !ide
@@ -2202,9 +2200,24 @@ window.api.onMenuAction((id) => {
 })
 
 function initPlatform() {
-  const p = window.api.platform
-  document.documentElement.dataset.platform =
-    p === 'darwin' ? 'mac' : p === 'win32' ? 'win' : 'linux'
+  const p = window.api && window.api.platform
+  if (p === 'darwin') document.documentElement.dataset.platform = 'mac'
+  else if (p === 'win32') document.documentElement.dataset.platform = 'win'
+  else if (p) document.documentElement.dataset.platform = 'linux'
+  const overlay = navigator.windowControlsOverlay
+  const syncWco = () => {
+    document.documentElement.classList.toggle('wco', !!(overlay && overlay.visible))
+  }
+  syncWco()
+  if (overlay && overlay.addEventListener) {
+    overlay.addEventListener('geometrychange', syncWco)
+  }
+  if (window.api.onFullscreen) {
+    window.api.onFullscreen((on) => {
+      if (on) document.documentElement.dataset.fullscreen = ''
+      else delete document.documentElement.dataset.fullscreen
+    })
+  }
 }
 
 initPlatform()

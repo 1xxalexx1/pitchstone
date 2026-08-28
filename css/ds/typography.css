@@ -1,25 +1,7 @@
-/**
- * Type pairing: Spectral (brand/display serif) + Inter (UI/chat sans).
- * Cherry's v2 contract is single-track (--cs-font-family-heading ==
- * --cs-font-family-body, both Inter) — we keep that intact so sidebar,
- * message text, settings forms are untouched. The serif is introduced as a
- * SEPARATE token, --font-brand-display, applied only via the .brand-display
- * utility on brand-moment surfaces (splash, empty/new-chat headline, about).
- * Never assign --font-brand-display to --cs-font-family-heading globally.
- *
- * Google Fonts, licensable, no local files provided by the source repos —
- * loaded via the standard Google Fonts stylesheet import (contains real
- * @font-face rules server-side). Flag to swap for self-hosted files if the
- * team wants to vendor them.
- */
-@import url('https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Inter:wght@400;500;600;700&display=swap');
-
 :root {
-  --font-brand-display: 'Spectral', Georgia, 'Times New Roman', serif;
-
-  /* unchanged from upstream — single-track, Ant map: fontFamily */
-  --cs-font-family-heading: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --cs-font-family-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-brand-display: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --cs-font-family-heading: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --cs-font-family-body: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
 
   --cs-font-weight-regular: 400;
   --cs-font-weight-medium: 500;
@@ -47,14 +29,8 @@
   --cs-line-height-heading-xl: 5rem;
 }
 
-/* Brand-moment headline treatment — splash, empty state, onboarding only */
 .brand-display {
-  font-family: var(--font-brand-display);
-  font-weight: 500;
-  letter-spacing: -0.01em;
-  font-style: normal;
-}
-.brand-display em {
-  font-style: italic;
-  font-weight: 400;
+  font-family: var(--cs-font-family-heading);
+  font-weight: 600;
+  letter-spacing: -0.02em;
 }

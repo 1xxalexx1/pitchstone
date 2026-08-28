@@ -7,10 +7,10 @@
 :root {
   --sy-text:  var(--cs-foreground);
   --sy-com:   var(--cs-ink-400);
-  --sy-key:   var(--cs-terracotta-700);
+  --sy-key:   var(--cs-blue-700);
   --sy-str:   var(--cs-forest-700);
   --sy-tag:   var(--cs-blue-600);
-  --sy-attr:  var(--cs-terracotta-600);
+  --sy-attr:  var(--cs-blue-500);
   --sy-prop:  var(--cs-blue-700);
   --sy-def:   var(--cs-forest-600);
   --sy-num:   var(--cs-blue-500);
@@ -20,10 +20,10 @@
 
 .dark {
   --sy-com:   var(--cs-foreground-tertiary);
-  --sy-key:   var(--cs-terracotta-300);
+  --sy-key:   var(--cs-blue-300);
   --sy-str:   var(--cs-forest-300);
   --sy-tag:   var(--cs-blue-300);
-  --sy-attr:  var(--cs-terracotta-200);
+  --sy-attr:  var(--cs-blue-200);
   --sy-prop:  var(--cs-blue-200);
   --sy-def:   var(--cs-forest-200);
   --sy-num:   var(--cs-blue-200);

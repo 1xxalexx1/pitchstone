@@ -6,6 +6,11 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.removeAllListeners('menu-action')
     ipcRenderer.on('menu-action', (_event, id) => fn(id))
   },
+  setDark: (dark) => ipcRenderer.invoke('set-dark', !!dark),
+  onFullscreen: (fn) => {
+    ipcRenderer.removeAllListeners('win-fullscreen')
+    ipcRenderer.on('win-fullscreen', (_event, on) => fn(!!on))
+  },
   selectVault: () => ipcRenderer.invoke('select-vault'),
   getVault: () => ipcRenderer.invoke('get-vault'),
   readDir: () => ipcRenderer.invoke('read-dir'),

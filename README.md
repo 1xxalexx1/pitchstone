@@ -2,7 +2,7 @@
 
 Volcanic glass, next to obsidian. Local-first notes in a folder (a vault). **Notes are HTML files.** Write them as Markdown or as HTML. CSS and JS live in the same file (`<style>` / `<script>`). Live preview runs in a sandboxed iframe.
 
-Signature color: terracotta (`--cs-primary`). Light and dark via a class on `<html>`.
+Window chrome is native-feeling: hidden traffic lights on Mac, overlay controls on Windows/Linux, zinc surfaces, system fonts. Light and dark via a class on `<html>`.
 
 ## Disclaimer
 
