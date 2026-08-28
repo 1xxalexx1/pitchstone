@@ -138,19 +138,30 @@
       <div id="agent-panel" class="ps-agent" hidden>
         <div class="ps-agent__cfg">
           <select id="agent-kind" aria-label="Adapter">
-            <option value="stdio">stdio</option>
-            <option value="http">http</option>
-            <option value="pi">pi</option>
-            <option value="claude">Claude Code</option>
+            <option value="acp">ACP</option>
+            <option value="claude">Claude</option>
+            <option value="gemini">Gemini</option>
             <option value="cursor">Cursor</option>
             <option value="opencode">OpenCode</option>
+            <option value="json">json</option>
+            <option value="http">http</option>
           </select>
-          <input id="agent-target" class="bcs-input" placeholder="command or http URL" spellcheck="false" autocomplete="off">
+          <input id="agent-target" class="bcs-input" placeholder="command, e.g. claude --acp" spellcheck="false" autocomplete="off">
+          <button type="button" class="bcs-btn bcs-btn-outline bcs-btn-sm" id="agent-start">Start</button>
+          <button type="button" class="bcs-btn bcs-btn-outline bcs-btn-sm" id="agent-stop" hidden>Stop</button>
         </div>
+        <p id="agent-status" class="ps-agent__status">idle · ACP session, vault is cwd</p>
         <div id="agent-log" class="ps-agent__log"></div>
+        <div id="agent-perm" class="ps-agent__perm" hidden>
+          <span id="agent-perm-title"></span>
+          <div id="agent-perm-actions"></div>
+        </div>
         <form id="agent-form" class="ps-agent__form">
           <textarea id="agent-input" rows="3" placeholder="Ask the agent" spellcheck="false"></textarea>
-          <button type="submit" class="bcs-btn bcs-btn-primary bcs-btn-sm" id="agent-send">Send</button>
+          <div class="ps-agent__composer">
+            <button type="button" class="bcs-btn bcs-btn-outline bcs-btn-sm" id="agent-cancel" hidden>Stop turn</button>
+            <button type="submit" class="bcs-btn bcs-btn-primary bcs-btn-sm" id="agent-send">Send</button>
+          </div>
         </form>
       </div>
     </aside>

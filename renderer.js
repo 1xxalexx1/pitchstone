@@ -2071,27 +2071,60 @@ document.getElementById('empty-open').addEventListener('click', () => {
 })
 
 const AGENT_PRESETS = {
-  pi: 'pi',
-  claude: 'claude',
-  cursor: 'cursor',
-  opencode: 'opencode',
+  acp: '',
+  claude: 'claude --acp',
+  gemini: 'gemini --acp',
+  cursor: 'agent acp',
+  opencode: 'opencode acp',
+  json: '',
+  http: '',
 }
-let agentHistory = []
 let agentBusy = false
+let agentLive = null
+let agentThought = null
+const agentTools = new Map()
 
 function persistAgentConfig() {
   const kind = document.getElementById('agent-kind')
   const target = document.getElementById('agent-target')
-  if (!kind || !target) return
-  void window.api.agentConfigSet({ kind: kind.value, target: target.value.trim() })
+  if (!kind || !target) return Promise.resolve()
+  return window.api.agentConfigSet({ kind: kind.value, target: target.value.trim() })
 }
 
 async function loadAgentConfig() {
   const cfg = await window.api.agentConfigGet()
   const kind = document.getElementById('agent-kind')
   const target = document.getElementById('agent-target')
-  if (kind) kind.value = cfg.kind || 'stdio'
+  let value = cfg.kind || 'acp'
+  if (value === 'stdio' || value === 'pi') value = 'acp'
+  if (kind) kind.value = value
   if (target) target.value = cfg.target || ''
+  syncAgentChrome('idle', 'idle · ACP session, vault is cwd')
+}
+
+function agentIsAcp() {
+  const kind = document.getElementById('agent-kind')
+  return kind && kind.value !== 'json' && kind.value !== 'http'
+}
+
+function syncAgentChrome(status, text) {
+  const line = document.getElementById('agent-status')
+  if (line && text) line.textContent = text
+  const running = status === 'ready' || status === 'busy' || status === 'starting'
+  const start = document.getElementById('agent-start')
+  const stop = document.getElementById('agent-stop')
+  const cancel = document.getElementById('agent-cancel')
+  const send = document.getElementById('agent-send')
+  if (start) start.hidden = !agentIsAcp() || running
+  if (stop) stop.hidden = !agentIsAcp() || !running
+  if (cancel) cancel.hidden = status !== 'busy'
+  if (send) send.disabled = agentBusy && status === 'busy'
+  agentBusy = status === 'busy' || status === 'starting'
+}
+
+function agentScroll() {
+  const log = document.getElementById('agent-log')
+  if (log) log.scrollTop = log.scrollHeight
 }
 
 function agentLog(role, text, edits) {
@@ -2100,12 +2133,21 @@ function agentLog(role, text, edits) {
   const wrap = document.createElement('div')
   wrap.className =
     'ps-agent__msg' +
-    (role === 'user' ? ' ps-agent__msg--user' : role === 'error' ? ' ps-agent__msg--error' : '')
+    (role === 'user'
+      ? ' ps-agent__msg--user'
+      : role === 'error'
+        ? ' ps-agent__msg--error'
+        : role === 'thought'
+          ? ' ps-agent__msg--thought'
+          : '')
   const who = document.createElement('span')
   who.className = 'ps-agent__who'
-  who.textContent = role === 'user' ? 'YOU' : role === 'error' ? 'ERROR' : 'AGENT'
+  who.textContent =
+    role === 'user' ? 'YOU' : role === 'error' ? 'ERROR' : role === 'thought' ? 'THINK' : 'AGENT'
+  const body = document.createElement('span')
+  body.textContent = text || ''
   wrap.appendChild(who)
-  wrap.appendChild(document.createTextNode(text || ''))
+  wrap.appendChild(body)
   if (edits && edits.length) {
     for (const edit of edits) {
       const btn = document.createElement('button')
@@ -2119,7 +2161,111 @@ function agentLog(role, text, edits) {
     }
   }
   log.appendChild(wrap)
-  log.scrollTop = log.scrollHeight
+  agentScroll()
+  return { wrap, body }
+}
+
+function hideAgentPerm() {
+  const bar = document.getElementById('agent-perm')
+  if (bar) bar.hidden = true
+}
+
+function showAgentPerm(event) {
+  const bar = document.getElementById('agent-perm')
+  const title = document.getElementById('agent-perm-title')
+  const actions = document.getElementById('agent-perm-actions')
+  if (!bar || !title || !actions) return
+  title.textContent = event.title || 'Allow this tool?'
+  actions.replaceChildren()
+  for (const opt of event.options || []) {
+    const btn = document.createElement('button')
+    btn.type = 'button'
+    btn.className =
+      opt.kind && opt.kind.indexOf('reject') === 0
+        ? 'bcs-btn bcs-btn-outline bcs-btn-sm'
+        : 'bcs-btn bcs-btn-primary bcs-btn-sm'
+    btn.textContent = opt.name
+    btn.addEventListener('click', () => {
+      hideAgentPerm()
+      void window.api.agentPermission({ optionId: opt.optionId, kind: opt.kind })
+    })
+    actions.appendChild(btn)
+  }
+  bar.hidden = false
+}
+
+function onAgentEvent(event) {
+  if (!event || !event.type) return
+  if (event.type === 'status') {
+    const label =
+      event.status === 'ready'
+        ? 'ready · ' + (event.text || 'session')
+        : event.status === 'busy'
+          ? 'running'
+          : event.status === 'starting'
+            ? 'starting · ' + (event.text || '')
+            : event.status === 'idle'
+              ? 'idle · ' + (event.text || 'stopped')
+              : String(event.text || event.status)
+    syncAgentChrome(event.status, label)
+    if (event.status === 'idle' || event.status === 'ready') {
+      agentLive = null
+      agentThought = null
+    }
+  } else if (event.type === 'chunk') {
+    if (!agentLive) agentLive = agentLog('assistant', '')
+    agentLive.body.textContent += event.text || ''
+    agentScroll()
+  } else if (event.type === 'thought') {
+    if (!agentThought) agentThought = agentLog('thought', '')
+    agentThought.body.textContent += event.text || ''
+    agentScroll()
+  } else if (event.type === 'tool') {
+    const log = document.getElementById('agent-log')
+    if (!log) return
+    let el = agentTools.get(event.toolCallId)
+    if (!el) {
+      el = document.createElement('div')
+      el.className = 'ps-agent__tool'
+      log.appendChild(el)
+      agentTools.set(event.toolCallId, el)
+    }
+    if (event.status) el.dataset.status = event.status
+    const bits = [event.title || event.kind || 'tool']
+    if (event.status) bits.push(event.status)
+    if (event.path) bits.push(event.path.replace(/^.*[/\\]/, ''))
+    if (event.detail) bits.push(event.detail)
+    el.textContent = bits.filter(Boolean).join(' · ')
+    agentScroll()
+  } else if (event.type === 'permission') {
+    showAgentPerm(event)
+  } else if (event.type === 'turn') {
+    agentLive = null
+    agentThought = null
+    hideAgentPerm()
+    syncAgentChrome('ready', 'ready · session')
+  } else if (event.type === 'error') {
+    agentLog('error', event.text || 'Agent error')
+    hideAgentPerm()
+  } else if (event.type === 'wrote' && event.path) {
+    void onAgentWrote(event.path)
+  }
+}
+
+async function onAgentWrote(filePath) {
+  await refreshFiles()
+  if (filePath === currentPath) {
+    const file = await window.api.readFile(filePath)
+    if (!file.error) {
+      dirty = false
+      loadNote(file.content)
+      showTab(activeTab)
+      setStatus('Saved')
+      updateChrome()
+      updatePreview()
+      void refreshInspect()
+    }
+  }
 }
 
 async function applyAgentEdit(edit) {
@@ -2146,11 +2292,30 @@ document.getElementById('agent-kind').addEventListener('change', () => {
   const kind = document.getElementById('agent-kind').value
   const target = document.getElementById('agent-target')
   const preset = AGENT_PRESETS[kind]
-  if (preset) target.value = preset
+  if (preset != null && (preset || kind !== 'acp')) {
+    if (preset) target.value = preset
+  }
   persistAgentConfig()
+  syncAgentChrome('idle', 'idle · ACP session, vault is cwd')
 })
 
 document.getElementById('agent-target').addEventListener('change', persistAgentConfig)
+
+document.getElementById('agent-start').addEventListener('click', async () => {
+  await persistAgentConfig()
+  const result = await window.api.agentStart()
+  if (result.error) agentLog('error', result.error)
+})
+
+document.getElementById('agent-stop').addEventListener('click', () => {
+  hideAgentPerm()
+  void window.api.agentStop()
+})
+
+document.getElementById('agent-cancel').addEventListener('click', () => {
+  hideAgentPerm()
+  void window.api.agentCancel()
+})
 
 document.getElementById('agent-form').addEventListener('submit', async (event) => {
   event.preventDefault()
@@ -2158,29 +2323,35 @@ document.getElementById('agent-form').addEventListener('submit', async (event) =
   const input = document.getElementById('agent-input')
   const message = input.value.trim()
   if (!message) return
-  persistAgentConfig()
+  await persistAgentConfig()
   input.value = ''
   agentLog('user', message)
-  agentHistory.push({ role: 'user', text: message })
+  agentLive = null
+  agentThought = null
   agentBusy = true
   document.getElementById('agent-send').disabled = true
-  const note = currentPath
-    ? { path: currentPath, html: noteToHtmlFile() }
-    : null
-  const reply = await window.api.agentSend({
-    message,
-    history: agentHistory,
-    note,
-  })
+  const note = currentPath ? { path: currentPath, html: noteToHtmlFile() } : null
+  const reply = await window.api.agentPrompt({ message, note })
   agentBusy = false
   document.getElementById('agent-send').disabled = false
   if (reply.error) {
     agentLog('error', reply.error)
+    syncAgentChrome('idle', 'idle · ' + reply.error)
     return
   }
-  agentLog('assistant', reply.text || '(no text)', reply.edits)
-  agentHistory.push({ role: 'assistant', text: reply.text || '' })
+  if (reply.mode === 'json') {
+    agentLog('assistant', reply.text || '(no text)', reply.edits)
+  }
 })
+
+document.getElementById('agent-input').addEventListener('keydown', (event) => {
+  if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+    event.preventDefault()
+    document.getElementById('agent-form').requestSubmit()
+  }
+})
+
+if (window.api.onAgentEvent) window.api.onAgentEvent(onAgentEvent)
 
 window.api.onMenuAction((id) => {
   if (id === 'open') document.getElementById('open').click()

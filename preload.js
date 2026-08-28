@@ -28,5 +28,13 @@ contextBridge.exposeInMainWorld('api', {
   noteContext: (filePath) => ipcRenderer.invoke('note-context', filePath),
   agentConfigGet: () => ipcRenderer.invoke('agent-config-get'),
   agentConfigSet: (cfg) => ipcRenderer.invoke('agent-config-set', cfg),
-  agentSend: (payload) => ipcRenderer.invoke('agent-send', payload),
+  agentStart: () => ipcRenderer.invoke('agent-start'),
+  agentStop: () => ipcRenderer.invoke('agent-stop'),
+  agentCancel: () => ipcRenderer.invoke('agent-cancel'),
+  agentPrompt: (payload) => ipcRenderer.invoke('agent-prompt', payload),
+  agentPermission: (choice) => ipcRenderer.invoke('agent-permission', choice),
+  onAgentEvent: (fn) => {
+    ipcRenderer.removeAllListeners('agent-event')
+    ipcRenderer.on('agent-event', (_event, data) => fn(data))
+  },
 })

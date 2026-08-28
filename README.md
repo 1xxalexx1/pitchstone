@@ -23,22 +23,25 @@ Electron 34, no bundler. Open a folder. New notes are `.html`. Last vault is rem
 - Wikilinks: `[[note]]` in Markdown, stored as `<a class="wikilink">` in HTML
 - Search: Cmd/Ctrl+K palette (filename + full text). `>` commands, `#` headings, `[[` notes
 - Backlinks in the inspect rail (linked + unlinked mentions). Local graph on the Graph ribbon icon
-- Agent panel: stdio JSON or HTTP POST. Named presets for pi / Claude Code / Cursor / OpenCode. Proposed edits apply through the vault path guard
+- Agent panel: ACP session (Zed-style frontend for a headless agent). Presets for Claude / Gemini / Cursor / OpenCode. `json` / `http` still do one-shot. File tools go through the vault path guard
 - Create / rename / delete notes and folders
 - Autosave (Unsaved → Saved), Cmd/Ctrl+S
 - Markdown / HTML / CSS+JS tabs on the same document
 - Preview: note HTML + your CSS/JS, `sandbox="allow-scripts"` (not `allow-same-origin`)
 - Path guard: renderer cannot read/write outside the vault
 
-## Agent contract
+## Agent
 
-JSON in, JSON out. `stdio` writes one request line to the command and reads stdout. `http` POSTs the same object.
+The panel is a client. The agent is a long-lived process that speaks [ACP](https://agentclientprotocol.com) (JSON-RPC over stdio), same idea as Zed / t3code.
+
+Start `claude --acp` (or another ACP command). Send keeps the session. The vault is the agent's cwd. Current note is attached as a resource. Streaming text, tool cards, and permission prompts show in the thread. `fs/read_text_file` and `fs/write_text_file` are served from main and still go through `resolveInVault()`.
+
+`json` and `http` are the old one-shot contract if you want a custom script:
 
 ```json
 {
   "pitchstone": 1,
   "message": "user text",
-  "history": [{ "role": "user", "text": "..." }],
   "note": { "path": "/abs/note.html", "html": "<!DOCTYPE html>..." }
 }
 ```

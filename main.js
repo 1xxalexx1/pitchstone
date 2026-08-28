@@ -6,6 +6,8 @@ const agent = require('./agent-bridge')
 
 let mainWindow = null
 let vaultRoot = null
+let acpHost = null
+let permUi = null
 
 const EMPTY_NOTE =
   '<!DOCTYPE html>\n<html>\n<head>\n<meta charset="utf-8">\n</head>\n<body>\n</body>\n</html>\n'
@@ -264,6 +266,7 @@ ipcMain.handle('select-vault', async () => {
   })
   if (result.canceled || !result.filePaths[0]) return null
   vaultRoot = result.filePaths[0]
+  dropAgent()
   await persistVaultRoot()
   return vaultRoot
 })
@@ -542,62 +545,174 @@ ipcMain.handle('note-context', async (_event, filePath) => {
 
 ipcMain.handle('agent-config-get', async () => {
   try {
-    return JSON.parse(await fs.promises.readFile(agentStorePath(), 'utf8'))
+    const cfg = JSON.parse(await fs.promises.readFile(agentStorePath(), 'utf8'))
+    if (cfg.kind === 'stdio') cfg.kind = 'acp'
+    return cfg
   } catch {
-    return { kind: 'stdio', target: '' }
+    return { kind: 'acp', target: '' }
   }
 })
 
 ipcMain.handle('agent-config-set', async (_event, cfg) => {
-  const kind = String((cfg && cfg.kind) || 'stdio')
+  const kind = String((cfg && cfg.kind) || 'acp')
   const target = String((cfg && cfg.target) || '')
   const next = { kind, target }
+  const prev = await readAgentCfg()
   await fs.promises.writeFile(agentStorePath(), JSON.stringify(next), 'utf8')
+  if (prev.kind !== next.kind || prev.target !== next.target) dropAgent()
   return next
 })
 
-ipcMain.handle('agent-send', async (_event, payload) => {
-  if (!vaultRoot) return { error: 'Open a vault first.' }
-  let cfg
-  try {
-    cfg = JSON.parse(await fs.promises.readFile(agentStorePath(), 'utf8'))
-  } catch {
-    cfg = { kind: 'stdio', target: '' }
+function emitAgent(event) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('agent-event', event)
   }
+}
+
+function dropAgent() {
+  if (permUi) {
+    permUi({ cancelled: true })
+    permUi = null
+  }
+  if (acpHost) {
+    acpHost.dispose()
+    acpHost = null
+  }
+}
+
+async function readAgentCfg() {
+  try {
+    const cfg = JSON.parse(await fs.promises.readFile(agentStorePath(), 'utf8'))
+    if (cfg.kind === 'stdio') cfg.kind = 'acp'
+    return cfg
+  } catch {
+    return { kind: 'acp', target: '' }
+  }
+}
+
+function vaultFile(filePath) {
+  if (!filePath) return null
+  if (path.isAbsolute(filePath)) return resolveInVault(filePath)
+  if (!vaultRoot) return null
+  return resolveInVault(path.join(vaultRoot, filePath))
+}
+
+function makeAcpHost(cfg) {
+  const resolved = agent.resolveKind(cfg.kind, cfg.target)
+  return new agent.AcpHost({
+    command: resolved.target,
+    cwd: vaultRoot,
+    readFile: async (filePath) => {
+      const target = vaultFile(filePath)
+      if (!target) throw new Error('Path is outside the vault.')
+      const st = await fs.promises.stat(target)
+      if (st.size > 1024 * 1024) throw new Error('File too large.')
+      return fs.promises.readFile(target, 'utf8')
+    },
+    writeFile: async (filePath, content) => {
+      const target = vaultFile(filePath)
+      if (!target) throw new Error('Path is outside the vault.')
+      if (Buffer.byteLength(String(content), 'utf8') > 2 * 1024 * 1024) {
+        throw new Error('Write too large.')
+      }
+      await fs.promises.writeFile(target, content, 'utf8')
+    },
+    askPermission: (payload) =>
+      new Promise((resolve) => {
+        permUi = resolve
+        emitAgent({ type: 'permission', title: payload.title, options: payload.options })
+      }),
+    onEvent: emitAgent,
+  })
+}
+
+function clipNote(payload) {
+  if (!payload || !payload.note) return null
+  const filePath = vaultFile(payload.note.path)
+  if (!filePath) return null
+  return {
+    path: filePath,
+    html: String(payload.note.html || '').slice(0, 200000),
+  }
+}
+
+ipcMain.handle('agent-start', async () => {
+  if (!vaultRoot) return { error: 'Open a vault first.' }
+  const cfg = await readAgentCfg()
+  const resolved = agent.resolveKind(cfg.kind, cfg.target)
+  if (resolved.kind !== 'acp') return { error: 'Start is for ACP agents.' }
+  dropAgent()
+  acpHost = makeAcpHost(cfg)
+  try {
+    await acpHost.start()
+    return { ok: true, sessionId: acpHost.sessionId }
+  } catch (err) {
+    dropAgent()
+    return { error: err.message }
+  }
+})
+
+ipcMain.handle('agent-stop', async () => {
+  dropAgent()
+  emitAgent({ type: 'status', status: 'idle', text: 'stopped' })
+  return { ok: true }
+})
+
+ipcMain.handle('agent-cancel', async () => {
+  if (acpHost) acpHost.cancel()
+  return { ok: true }
+})
+
+ipcMain.handle('agent-permission', async (_event, choice) => {
+  if (permUi) {
+    permUi(choice && choice.optionId ? choice : { cancelled: true })
+    permUi = null
+  }
+  return { ok: true }
+})
+
+ipcMain.handle('agent-prompt', async (_event, payload) => {
+  if (!vaultRoot) return { error: 'Open a vault first.' }
+  const cfg = await readAgentCfg()
+  const resolved = agent.resolveKind(cfg.kind, cfg.target)
   const message = String((payload && payload.message) || '').trim()
   if (!message) return { error: 'Empty message.' }
-  const history = Array.isArray(payload && payload.history)
-    ? payload.history.slice(-12).map((item) => ({
-        role: item && item.role === 'assistant' ? 'assistant' : 'user',
-        text: String((item && item.text) || '').slice(0, 8000),
-      }))
-    : []
-  const note =
-    payload && payload.note
-      ? {
-          path: String(payload.note.path || ''),
-          html: String(payload.note.html || '').slice(0, 200000),
-        }
-      : null
-  try {
-    const reply = await agent.runAgent(
-      cfg,
-      { pitchstone: 1, message, history, note },
-      vaultRoot
-    )
-    const edits = []
-    for (const item of reply.edits || []) {
-      const target = path.isAbsolute(item.path)
-        ? resolveInVault(item.path)
-        : resolveInVault(path.join(vaultRoot, item.path))
-      if (!target) continue
-      edits.push({
-        path: target,
-        rel: path.relative(vaultRoot, target).replace(/\\/g, '/'),
-        html: item.html,
-      })
+  const note = clipNote(payload)
+  if (resolved.kind !== 'acp') {
+    try {
+      const reply = await agent.runAgent(
+        { kind: resolved.kind, target: resolved.target },
+        { pitchstone: 1, message, note },
+        vaultRoot
+      )
+      const edits = []
+      for (const item of reply.edits || []) {
+        const target = vaultFile(item.path)
+        if (!target) continue
+        edits.push({
+          path: target,
+          rel: path.relative(vaultRoot, target).replace(/\\/g, '/'),
+          html: item.html,
+        })
+      }
+      return { mode: 'json', text: reply.text || '', edits }
+    } catch (err) {
+      return { error: err.message }
     }
-    return { text: reply.text || '', edits }
+  }
+  if (!acpHost || !acpHost.alive) {
+    dropAgent()
+    acpHost = makeAcpHost(cfg)
+    try {
+      await acpHost.start()
+    } catch (err) {
+      dropAgent()
+      return { error: err.message }
+    }
+  }
+  try {
+    await acpHost.prompt(agent.promptBlocks(message, note))
+    return { mode: 'acp', ok: true }
   } catch (err) {
     return { error: err.message }
   }
