@@ -1,0 +1,171 @@
+/**
+ * BearCherry palette — primitives + semantic providers.
+ * Naming mirrors upstream Cherry Studio's --cs-* token architecture 1:1
+ * (packages/ui/src/styles/tokens/colors/*) so this drops into the fork's
+ * existing contract.css cascade (tokens -> theme-input -> shadcn -> product)
+ * with no renaming pass. Ant Design mapping in comments where relevant
+ * (Cherry's v1 layer still reads some of these through AntD ConfigProvider).
+ *
+ * Hue sources: the dusk-mountain reference photo, NOT product screenshots —
+ * cobalt-to-navy sky, forest-green field, warm terracotta cloud-edge. Accent
+ * fallback (coral/red, closer to stock Cherry red) included per brief; swap
+ * --cs-primary's source scale from terracotta to cherry-red if terracotta
+ * reads too muted against the blues.
+ */
+
+:root {
+  /* Brand blue — cobalt sky. hue ~250 */
+  --cs-blue-50: oklch(0.97 0.012 240);
+  --cs-blue-100: oklch(0.93 0.028 242);
+  --cs-blue-200: oklch(0.86 0.05 244);
+  --cs-blue-300: oklch(0.76 0.08 246);
+  --cs-blue-400: oklch(0.64 0.11 248);
+  --cs-blue-500: oklch(0.52 0.13 250);
+  --cs-blue-600: oklch(0.42 0.12 251);
+  --cs-blue-700: oklch(0.34 0.1 252);
+  --cs-blue-800: oklch(0.27 0.08 253);
+  --cs-blue-900: oklch(0.21 0.06 254);
+  --cs-blue-950: oklch(0.15 0.045 255);
+
+  /* Brand green — forest field. hue ~150 */
+  --cs-forest-50: oklch(0.97 0.018 150);
+  --cs-forest-100: oklch(0.93 0.032 150);
+  --cs-forest-200: oklch(0.85 0.058 151);
+  --cs-forest-300: oklch(0.74 0.085 151);
+  --cs-forest-400: oklch(0.62 0.095 150);
+  --cs-forest-500: oklch(0.5 0.09 149);
+  --cs-forest-600: oklch(0.4 0.08 148);
+  --cs-forest-700: oklch(0.32 0.065 148);
+  --cs-forest-800: oklch(0.25 0.05 148);
+  --cs-forest-900: oklch(0.19 0.038 149);
+  --cs-forest-950: oklch(0.14 0.028 150);
+
+  /* Accent — terracotta / warm beige-orange (cloud-edge + sunlit rock). hue ~45 */
+  --cs-terracotta-50: oklch(0.97 0.018 55);
+  --cs-terracotta-100: oklch(0.93 0.04 52);
+  --cs-terracotta-200: oklch(0.87 0.065 50);
+  --cs-terracotta-300: oklch(0.79 0.09 48);
+  --cs-terracotta-400: oklch(0.71 0.11 46);
+  --cs-terracotta-500: oklch(0.64 0.125 44);
+  --cs-terracotta-600: oklch(0.56 0.12 42);
+  --cs-terracotta-700: oklch(0.47 0.105 40);
+  --cs-terracotta-800: oklch(0.38 0.085 38);
+  --cs-terracotta-900: oklch(0.3 0.065 37);
+  --cs-terracotta-950: oklch(0.2 0.045 36);
+
+  /* Accent fallback — cherry/coral red, flagged in brief as backup if terracotta underperforms against blue */
+  --cs-cherry-500: oklch(0.62 0.19 25);
+  --cs-cherry-600: oklch(0.55 0.195 26);
+
+  /* Danger — kept distinct from the warm accent so "delete" never reads as "brand" */
+  --cs-red-500: oklch(0.64 0.19 21);
+  --cs-red-400: oklch(0.71 0.15 20);
+
+  /* Neutral ink — very slightly cool (blue-leaning) so it sits quietly under the palette above */
+  --cs-ink-50: oklch(0.985 0.004 240);
+  --cs-ink-100: oklch(0.95 0.006 245);
+  --cs-ink-200: oklch(0.89 0.008 248);
+  --cs-ink-300: oklch(0.8 0.01 248);
+  --cs-ink-400: oklch(0.65 0.014 248);
+  --cs-ink-500: oklch(0.5 0.016 248);
+  --cs-ink-600: oklch(0.4 0.018 249);
+  --cs-ink-700: oklch(0.32 0.02 249);
+  --cs-ink-800: oklch(0.24 0.02 250);
+  --cs-ink-900: oklch(0.19 0.02 250);
+  --cs-ink-950: oklch(0.13 0.018 251);
+
+  --cs-white: oklch(1 0 0);
+  --cs-black: oklch(0 0 0);
+
+  /* ---- Semantic providers: LIGHT ---- Ant map: colorBgBase / colorTextBase / colorPrimary ---- */
+  --cs-primary: var(--cs-terracotta-500); /* colorPrimary */
+  --cs-primary-foreground: oklch(0.99 0.004 60);
+  --cs-destructive: var(--cs-red-500);
+  --cs-destructive-hover: var(--cs-red-400);
+  --cs-success: var(--cs-forest-500);
+  --cs-warning: var(--cs-terracotta-400);
+  --cs-info: var(--cs-blue-500);
+
+  --cs-background: var(--cs-ink-50); /* colorBgBase — soft sky-tinted white, not stock white */
+  --cs-background-subtle: oklch(0.22 0.02 250 / 0.03);
+  --cs-foreground: var(--cs-ink-900); /* colorTextBase */
+  --cs-muted-foreground: var(--cs-ink-500);
+  --cs-foreground-tertiary: var(--cs-ink-400);
+  --cs-foreground-disabled: var(--cs-ink-400);
+
+  --cs-card: var(--cs-white); /* colorBgContainer */
+  --cs-popover: var(--cs-white); /* colorBgElevated */
+  --cs-card-foreground: var(--cs-ink-900);
+  --cs-popover-foreground: var(--cs-ink-900);
+
+  --cs-border: oklch(0.22 0.02 250 / 0.1); /* colorBorder */
+  --cs-border-subtle: oklch(0.22 0.02 250 / 0.05);
+  --cs-border-strong: oklch(0.22 0.02 250 / 0.22);
+  --cs-border-selected: var(--cs-primary);
+  --cs-input: var(--cs-ink-200);
+  --cs-ring: color-mix(in oklch, var(--cs-primary) 45%, transparent);
+
+  --cs-secondary: oklch(0.22 0.02 250 / 0.05);
+  --cs-secondary-hover: oklch(0.22 0.02 250 / 0.09);
+  --cs-secondary-foreground: var(--cs-ink-800);
+  --cs-muted: oklch(0.22 0.02 250 / 0.05);
+  --cs-accent: oklch(0.22 0.02 250 / 0.06);
+  --cs-accent-foreground: var(--cs-ink-800);
+
+  /* Sidebar is its own spatial zone — sage/field tint, glass over --cs-background.
+     Alpha is load-bearing: this is Cherry's translucent-surface convention, retoned. */
+  --cs-sidebar: oklch(0.94 0.014 152 / 0.72); /* colorBgLayout, glass */
+  --cs-sidebar-foreground: var(--cs-forest-800);
+  --cs-sidebar-accent: oklch(0.86 0.03 151 / 0.55);
+  --cs-sidebar-accent-foreground: var(--cs-forest-900);
+  --cs-sidebar-border: oklch(0.22 0.02 250 / 0.08);
+  --cs-sidebar-ring: var(--cs-primary);
+
+  --cs-surface-blur: 28px; /* backdrop-filter blur amount for glass surfaces */
+  --cs-surface-saturate: 150%;
+}
+
+.dark {
+  --cs-primary: var(--cs-terracotta-400); /* lifted one step for contrast on dark navy */
+  --cs-primary-foreground: oklch(0.18 0.02 40);
+  --cs-success: var(--cs-forest-400);
+  --cs-warning: var(--cs-terracotta-300);
+  --cs-info: var(--cs-blue-400);
+
+  /* Base background leans into the deep cobalt sky from the reference photo, not generic gray-black */
+  --cs-background: oklch(0.19 0.032 252 / 0.55); /* alpha kept — Cherry's dark shell is translucent by design */
+  --cs-background-subtle: oklch(1 0 0 / 0.02);
+  --cs-foreground: oklch(0.93 0.008 240);
+  --cs-muted-foreground: oklch(0.68 0.014 244);
+  --cs-foreground-tertiary: oklch(0.54 0.014 246);
+
+  --cs-card: oklch(0.23 0.03 252);
+  --cs-popover: oklch(0.28 0.03 251); /* one step lighter than card — surfaces stack via color, popover above card */
+  --cs-card-foreground: oklch(0.95 0.006 240);
+  --cs-popover-foreground: oklch(0.97 0.005 240);
+
+  --cs-border: oklch(1 0 0 / 0.1);
+  --cs-border-subtle: oklch(1 0 0 / 0.05);
+  --cs-border-strong: oklch(1 0 0 / 0.2);
+  --cs-border-selected: var(--cs-primary);
+  --cs-input: oklch(1 0 0 / 0.14);
+  --cs-ring: color-mix(in oklch, var(--cs-primary) 50%, transparent);
+
+  --cs-secondary: oklch(1 0 0 / 0.08);
+  --cs-secondary-hover: oklch(1 0 0 / 0.14);
+  --cs-secondary-foreground: oklch(0.95 0.006 240);
+  --cs-muted: oklch(1 0 0 / 0.08);
+  --cs-accent: oklch(1 0 0 / 0.08);
+  --cs-accent-foreground: oklch(0.95 0.006 240);
+
+  /* Dark sidebar leans into the forest-field green — deep, not black */
+  --cs-sidebar: oklch(0.16 0.032 152 / 0.55); /* alpha matches Cherry's existing dark .background convention */
+  --cs-sidebar-foreground: oklch(0.9 0.02 140);
+  --cs-sidebar-accent: oklch(0.32 0.05 149 / 0.6);
+  --cs-sidebar-accent-foreground: oklch(0.96 0.015 135);
+  --cs-sidebar-border: oklch(1 0 0 / 0.07);
+  --cs-sidebar-ring: var(--cs-primary);
+
+  --cs-surface-blur: 32px;
+  --cs-surface-saturate: 160%;
+}

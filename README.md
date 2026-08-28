@@ -2,7 +2,7 @@
 
 Volcanic glass, next to obsidian. Local-first notes in a folder (a vault). **Notes are HTML files.** Write them as Markdown or as HTML. CSS and JS live in the same file (`<style>` / `<script>`). Live preview runs in a sandboxed iframe.
 
-Signature color: **ember** `#e07040`.
+Signature color: terracotta (`--cs-primary`). Light and dark via a class on `<html>`.
 
 ## Disclaimer
 
@@ -19,8 +19,9 @@ Electron 34, no bundler. Open a folder. New notes are `.html`. Last vault is rem
 
 ## What works
 
-- Pick a vault, list files (flat — no folder tree yet)
-- Create / rename / delete notes
+- Pick a vault, nested folder tree (drag to move)
+- Wikilinks: `[[note]]` in Markdown, stored as `<a class="wikilink">` in HTML
+- Create / rename / delete notes and folders
 - Autosave (Unsaved → Saved), Cmd/Ctrl+S
 - Markdown / HTML / CSS+JS tabs on the same document
 - Preview: note HTML + your CSS/JS, `sandbox="allow-scripts"` (not `allow-same-origin`)
@@ -34,10 +35,10 @@ See the roadmap. Saving a `.md` file writes an HTML document to that same path. 
 
 **v0 (this):** vault, HTML notes, tabs, preview, create/rename/delete, autosave.
 
-**After v0** (not started):
+**After v0:**
 
 1. Nested folders
-2. `[[wikilinks]]`
+2. `[[wikilinks]]` (this)
 3. Search
 4. Backlinks
 5. Graph (optional)

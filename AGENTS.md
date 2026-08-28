@@ -57,9 +57,8 @@ iframe across a UI rewrite so plugins and notes do not die with the shell.
 | `renderer.js` | Vault UI, tabs, CodeMirror, preview, HTML open/save |
 | `index.html` | Dark split layout: file list, editor, sandboxed preview |
 
-Working: vault files, tabs, HTML save, create/rename/delete, last vault remembered,
-autosave with Unsaved/Saved. Nested folders are M7. One commit per finished
-milestone.
+Working: nested vault tree, wikilinks (`[[note]]` ↔ `<a class="wikilink">`), tabs, HTML save,
+create/rename/delete notes and folders, drag to move, last vault remembered, autosave.
 
 ## How we work
 
@@ -90,8 +89,8 @@ milestone.
 
 ### After v0 — notes app (do not start before you ask)
 
-- [ ] **M7 — Nested vault**: folders as a real tree, not a flat list.
-- [ ] **M8 — Wikilinks**: `[[note]]` in the Markdown view (stored as links in
+- [x] **M7 — Nested vault**: folders as a real tree, not a flat list.
+- [x] **M8 — Wikilinks**: `[[note]]` in the Markdown view (stored as links in
   the HTML). Click to open, create if missing.
 - [ ] **M9 — Search**: filter the vault by filename and full text.
 - [ ] **M10 — Backlinks**: show notes that link here.

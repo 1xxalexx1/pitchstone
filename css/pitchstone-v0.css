@@ -1,0 +1,61 @@
+/* Glue for the v0 DOM. Tokens only — no hex. */
+html, body { overflow: hidden; }
+#centre { min-width: 0; }
+#editor-pane .CodeMirror {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  height: auto !important;
+}
+#empty-vault {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: 0;
+}
+#empty-vault[hidden] { display: none !important; }
+.ps-titlebar__brand {
+  font: 600 12px/1 var(--ps-ui-font);
+  letter-spacing: 0.06em;
+  color: var(--ps-text);
+}
+.ps-titlebar__path {
+  color: var(--ps-text-2);
+  font: 400 11.5px/1 var(--ps-ui-font);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ps-titlebar__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+.ps-titlebar .ps-segment { -webkit-app-region: no-drag; }
+
+#wiki-popup {
+  position: fixed;
+  z-index: 40;
+  width: 330px;
+}
+#wiki-popup[hidden] { display: none !important; }
+#wiki-popup .ps-popover__row {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+}
+#unresolved-wrap {
+  flex: none;
+  border-top: 1px solid var(--cs-sidebar-border);
+}
+#unresolved-wrap .ps-tree { flex: none; max-height: 160px; }
+
+@media (max-width: 1074px) {
+  html[data-shell="vault"] #utility { display: none !important; }
+}
+@media (max-width: 812px) {
+  #tree-rail { display: none !important; }
+}

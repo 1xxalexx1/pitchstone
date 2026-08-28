@@ -1,16 +1,16 @@
 let currentPath = null
+let selectedPath = null
+let selectedIsDir = false
+let expandedPaths = new Set()
+let treeItems = []
+let unresolvedTargets = []
+let wikiMarks = []
+let wikiIndex = 0
+let wikiRows = []
 const editor = document.getElementById('editor')
 const preview = document.getElementById('preview')
 const PREVIEW_DELAY_MS = 100
 const SAVE_DELAY_MS = 800
-const PREVIEW_CSS =
-  'html,body{margin:0}' +
-  'body{padding:12px 16px;font:15px/1.45 ui-sans-serif,system-ui,sans-serif;' +
-  'color:#d8d2c8;background:#1e1c19}' +
-  'a{color:#e08a58}' +
-  'code,pre{font-family:ui-monospace,Menlo,Consolas,monospace;background:#2a2723}' +
-  'pre{padding:8px;overflow:auto}' +
-  'img{max-width:100%}'
 const TAB_LABELS = {
   markdown: 'Markdown',
   html: 'HTML',
@@ -42,6 +42,19 @@ const turndown = new TurndownService({
   headingStyle: 'atx',
   codeBlockStyle: 'fenced',
 })
+turndown.addRule('wikilink', {
+  filter: (node) =>
+    node.nodeName === 'A' && node.classList && node.classList.contains('wikilink'),
+  replacement: (content, node) => {
+    const href = (node.getAttribute('href') || '')
+      .replace(/\\/g, '/')
+      .replace(/\.html$/i, '')
+    const label = content.trim()
+    const leaf = href.split('/').pop()
+    if (label && label !== href && label !== leaf) return '[[' + href + '|' + label + ']]'
+    return '[[' + href + ']]'
+  },
+})
 
 CodeMirror.defineMode('cssjs', (config) =>
   CodeMirror.multiplexingMode(CodeMirror.getMode(config, 'css'), {
@@ -66,7 +79,8 @@ const buffers = {
 
 const cm = CodeMirror.fromTextArea(editor, {
   lineNumbers: true,
-  theme: 'material-darker',
+  theme: 'pitchstone',
+  styleActiveLine: true,
   tabSize: 2,
   indentUnit: 2,
   lineWrapping: true,
@@ -86,6 +100,54 @@ const cm = CodeMirror.fromTextArea(editor, {
     'Cmd-S': () => {
       void saveFile()
     },
+    'Cmd-1': () => setTab('markdown'),
+    'Cmd-2': () => setTab('html'),
+    'Cmd-3': () => setTab('cssjs'),
+    'Ctrl-1': () => setTab('markdown'),
+    'Ctrl-2': () => setTab('html'),
+    'Ctrl-3': () => setTab('cssjs'),
+    Esc() {
+      if (wikiPopupOpen()) {
+        hideWikiPopup()
+        return
+      }
+      return CodeMirror.Pass
+    },
+    Up() {
+      if (wikiPopupOpen()) {
+        wikiMove(-1)
+        return
+      }
+      return CodeMirror.Pass
+    },
+    Down() {
+      if (wikiPopupOpen()) {
+        wikiMove(1)
+        return
+      }
+      return CodeMirror.Pass
+    },
+    Enter() {
+      if (wikiPopupOpen()) {
+        wikiPick()
+        return
+      }
+      return CodeMirror.Pass
+    },
+    'Cmd-Enter'() {
+      if (wikiPopupOpen()) {
+        void wikiCreate()
+        return
+      }
+      return CodeMirror.Pass
+    },
+    'Ctrl-Enter'() {
+      if (wikiPopupOpen()) {
+        void wikiCreate()
+        return
+      }
+      return CodeMirror.Pass
+    },
   },
   hintOptions: { hint: tabHint, completeSingle: false },
 })
@@ -93,7 +155,12 @@ const cm = CodeMirror.fromTextArea(editor, {
 function tabHint(instance, options) {
   const mode = instance.getOption('mode')
   if (mode === 'htmlmixed') return CodeMirror.hint.html(instance, options)
-  if (mode === 'markdown') return CodeMirror.hint.anyword(instance, options)
+  if (mode === 'markdown') {
+    if (wikiQueryAtCursor()) {
+      return { list: [], from: instance.getCursor(), to: instance.getCursor() }
+    }
+    return CodeMirror.hint.anyword(instance, options)
+  }
   if (mode === 'cssjs') {
     const cursor = instance.getCursor()
     const before = instance.getRange({ line: 0, ch: 0 }, cursor)
@@ -153,7 +220,7 @@ function splitCssJs(raw) {
 
 function htmlFromMarkdown(md) {
   if (!md.trim()) return ''
-  const parsed = marked.parse(md)
+  const parsed = marked.parse(replaceWikilinks(md))
   const doc = new DOMParser().parseFromString(parsed, 'text/html')
   const blocks = Array.from(doc.body.children)
   if (blocks.length) return blocks.map((el) => el.outerHTML).join('\n')
@@ -210,7 +277,7 @@ function syncFromMarkdown() {
 }
 
 function bodyHtml() {
-  return buffers.html.trim() ? buffers.html : marked.parse(buffers.markdown)
+  return buffers.html.trim() ? buffers.html : htmlFromMarkdown(buffers.markdown)
 }
 
 function looksLikeHtmlNote(raw) {
@@ -268,24 +335,66 @@ function noteToHtmlFile() {
   return out + '\n</body>\n</html>\n'
 }
 
+function token(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+}
+
+function previewChrome() {
+  const fg = token('--cs-foreground')
+  const bg = token('--cs-card')
+  const link = token('--cs-primary')
+  const fence = token('--cs-background-subtle')
+  return (
+    'html,body{margin:0}' +
+    'body{padding:12px 16px;font:15px/1.45 Inter,system-ui,sans-serif;color:' +
+    fg +
+    ';background:' +
+    bg +
+    '}' +
+    'a{color:' +
+    link +
+    '}' +
+    'code,pre{font-family:ui-monospace,Menlo,Consolas,monospace;background:' +
+    fence +
+    '}' +
+    'pre{padding:8px;overflow:auto}' +
+    'img{max-width:100%}' +
+    'a.wikilink{text-decoration:underline dotted}' +
+    'a.wikilink-unresolved{opacity:.7;font-style:italic;text-decoration:underline dashed}'
+  )
+}
+
+const WIKI_PREVIEW_JS =
+  'document.addEventListener("click",function(e){' +
+  'var a=e.target.closest&&e.target.closest("a.wikilink");' +
+  'if(!a)return;e.preventDefault();' +
+  'parent.postMessage({pitchstone:"wiki",href:a.getAttribute("href")||""},"*");' +
+  '});'
+
 function updatePreview() {
   buffers[activeTab] = cm.getValue()
   const parts = splitCssJs(buffers.cssjs)
   preview.srcdoc =
     '<!DOCTYPE html><html><head><meta charset="utf-8"><style>' +
-    PREVIEW_CSS +
+    previewChrome() +
     '</style><style>' +
     parts.css +
     '</style></head><body>' +
     bodyHtml() +
     '<script>' +
     parts.js +
+    '</script><script>' +
+    WIKI_PREVIEW_JS +
     '</script></body></html>'
 }
 
 function schedulePreview() {
   clearTimeout(previewTimer)
-  previewTimer = setTimeout(updatePreview, PREVIEW_DELAY_MS)
+  previewTimer = setTimeout(() => {
+    updatePreview()
+    markWikilinks()
+    updateWikiPopup()
+  }, PREVIEW_DELAY_MS)
 }
 
 function applyTabChrome(name) {
@@ -301,12 +410,14 @@ function applyTabChrome(name) {
 }
 
 function showTab(name) {
+  hideWikiPopup()
   applyingTab = true
   activeTab = name
   cm.setValue(buffers[name])
   applyingTab = false
   applyTabChrome(name)
   updatePreview()
+  markWikilinks()
   requestAnimationFrame(() => {
     cm.refresh()
     if (cm.performLint) cm.performLint()
@@ -345,25 +456,472 @@ cm.on('change', () => {
 })
 
 cm.on('inputRead', (instance, change) => {
-  if (change.origin !== '+input' || applyingTab) return
+  if (applyingTab) return
+  updateWikiPopup()
+  if (change.origin !== '+input' || wikiQueryAtCursor()) return
   const typed = change.text[0]
   if (!typed || typed.length !== 1 || !/[\w.#@<$-]/.test(typed)) return
   if (!CodeMirror.commands.autocomplete) return
   CodeMirror.commands.autocomplete(instance)
 })
 
+cm.on('cursorActivity', () => {
+  if (applyingTab) return
+  updateWikiPopup()
+})
+
+cm.on('mousedown', (instance, event) => {
+  if (activeTab !== 'markdown') return
+  if (!(event.metaKey || event.ctrlKey)) return
+  const pos = instance.coordsChar({ left: event.clientX, top: event.clientY })
+  const target = wikiAtPos(pos)
+  if (!target) return
+  event.preventDefault()
+  void openWiki(target)
+})
+
 function setStatus(text) {
-  document.getElementById('status').textContent = text
+  const el = document.getElementById('status')
+  el.className = 'ps-save'
+  if (text === 'Saved' || text === 'Exported') {
+    el.textContent = text === 'Exported' ? '* Exported' : '* Saved'
+    el.classList.add('ps-save--saved')
+  } else if (text === 'Unsaved') {
+    el.textContent = 'o Unsaved'
+    el.classList.add('ps-save--dirty')
+  } else if (text === 'Saving') {
+    el.textContent = '... Saving'
+    el.classList.add('ps-save--saving')
+  } else if (!text || text === 'Ready' || text === 'Deleted') {
+    el.textContent = text || ''
+  } else {
+    el.textContent = 'x ' + text
+    el.classList.add('ps-save--error')
+  }
+}
+
+function setEmptyVault(show) {
+  const el = document.getElementById('empty-vault')
+  if (el) el.hidden = !show
+}
+
+function applyTheme(dark) {
+  document.documentElement.classList.toggle('dark', dark)
+  const btn = document.getElementById('theme-toggle')
+  if (btn) btn.textContent = dark ? 'Light' : 'Dark'
+  localStorage.setItem('pitchstone-theme', dark ? 'dark' : 'light')
+  updatePreview()
+}
+
+function initTheme() {
+  const saved = localStorage.getItem('pitchstone-theme')
+  const dark = saved
+    ? saved === 'dark'
+    : window.matchMedia('(prefers-color-scheme: dark)').matches
+  applyTheme(dark)
+}
+
+const UTIL_EMPTY = {
+  outline: 'No outline yet.',
+  backlinks: 'No backlinks yet.',
+  agent: 'No agent yet.',
+}
+const DOCK_EMPTY = {
+  problems: 'No problems.',
+  output: 'No output.',
+  backlinks: 'No backlinks yet.',
+  agent: 'No agent yet.',
+}
+
+function noteName() {
+  return currentPath ? currentPath.split(/[/\\]/).pop() : 'untitled'
+}
+
+function vaultLeaf() {
+  const folder = document.getElementById('path').textContent
+  if (!folder || folder === 'no folder yet') return 'vault'
+  const parts = folder.split(/[/\\]/).filter(Boolean)
+  return parts[parts.length - 1] || 'vault'
+}
+
+function updateChrome() {
+  const name = noteName()
+  const label = document.getElementById('note-tab-label')
+  if (label) label.textContent = currentPath ? name : 'untitled'
+  const dot = document.getElementById('note-dirty')
+  if (dot) dot.hidden = !dirty
+  const crumb = document.getElementById('breadcrumbs')
+  if (crumb) {
+    crumb.replaceChildren()
+    const root = document.createElement('span')
+    root.textContent = vaultLeaf()
+    crumb.appendChild(root)
+    if (currentPath) {
+      const sep = document.createElement('span')
+      sep.className = 'ps-breadcrumbs__sep'
+      sep.textContent = '/'
+      const leaf = document.createElement('span')
+      leaf.className = 'ps-breadcrumbs__leaf'
+      leaf.textContent = name
+      crumb.appendChild(sep)
+      crumb.appendChild(leaf)
+    }
+  }
+  const openList = document.getElementById('open-notes-list')
+  if (!openList) return
+  openList.replaceChildren()
+  if (!currentPath) return
+  const li = document.createElement('li')
+  li.className = 'ps-tree__row'
+  li.setAttribute('aria-current', 'true')
+  li.textContent = name
+  if (dirty) {
+    const mark = document.createElement('span')
+    mark.className = 'ps-dot'
+    li.appendChild(mark)
+  }
+  openList.appendChild(li)
+}
+
+function applyShell(shell) {
+  const ide = shell === 'ide'
+  document.documentElement.dataset.shell = ide ? 'ide' : 'vault'
+  localStorage.setItem('pitchstone-shell', ide ? 'ide' : 'vault')
+  const rail = document.getElementById('icon-rail')
+  rail.classList.toggle('ps-rail--ribbon', !ide)
+  rail.classList.toggle('ps-rail--activity', ide)
+  document.getElementById('open-notes').hidden = !ide
+  document.getElementById('breadcrumbs').hidden = !ide
+  document.getElementById('dock').hidden = !ide
+  document.getElementById('utility').hidden = ide
+  for (const btn of document.querySelectorAll('#shell-toggle [data-shell]')) {
+    btn.setAttribute('aria-selected', btn.dataset.shell === (ide ? 'ide' : 'vault') ? 'true' : 'false')
+  }
+  requestAnimationFrame(() => cm.refresh())
+}
+
+function initShell() {
+  const saved = localStorage.getItem('pitchstone-shell')
+  applyShell(saved === 'ide' ? 'ide' : 'vault')
 }
 
 function markDirty() {
   if (!currentPath) return
   dirty = true
   setStatus('Unsaved')
+  updateChrome()
   clearTimeout(saveTimer)
   saveTimer = setTimeout(() => {
     void saveFile()
   }, SAVE_DELAY_MS)
+}
+
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/"/g, '&quot;')
+}
+
+function flattenNotes(items, folder, into) {
+  for (const item of items) {
+    if (item.isDir) {
+      flattenNotes(
+        item.children,
+        folder ? folder + '/' + item.name : item.name,
+        into
+      )
+    } else if (/\.html$/i.test(item.name)) {
+      const rel = (folder ? folder + '/' + item.name : item.name).replace(
+        /\\/g,
+        '/'
+      )
+      into.push({
+        path: item.path,
+        name: item.name,
+        stem: item.name.replace(/\.html$/i, ''),
+        folder: folder || '',
+        rel,
+      })
+    }
+  }
+  return into
+}
+
+function allNotes() {
+  return flattenNotes(treeItems, '', [])
+}
+
+function resolveWiki(target) {
+  const t = String(target || '')
+    .trim()
+    .replace(/\\/g, '/')
+    .replace(/\.html$/i, '')
+  if (!t) return null
+  const notes = allNotes()
+  const lower = t.toLowerCase()
+  const relHit = notes.find(
+    (n) => n.rel.replace(/\.html$/i, '').toLowerCase() === lower
+  )
+  if (relHit) return relHit
+  const stem = t.split('/').pop().toLowerCase()
+  const hits = notes.filter((n) => n.stem.toLowerCase() === stem)
+  return hits.length === 1 ? hits[0] : null
+}
+
+function wikiHref(target, note) {
+  if (note) return note.rel
+  return target.replace(/\\/g, '/').replace(/\.html$/i, '') + '.html'
+}
+
+function replaceWikilinks(md) {
+  const parts = md.split(/(```[\s\S]*?```|`[^`]+`)/)
+  return parts
+    .map((part, i) => {
+      if (i % 2) return part
+      return part.replace(/\[\[([^\]\n]+?)\]\]/g, (_, inner) => {
+        const pipe = inner.indexOf('|')
+        const target = (pipe === -1 ? inner : inner.slice(0, pipe)).trim()
+        const label = (pipe === -1 ? target : inner.slice(pipe + 1)).trim()
+        const note = resolveWiki(target)
+        const cls = note ? 'wikilink' : 'wikilink wikilink-unresolved'
+        return (
+          '<a class="' +
+          cls +
+          '" href="' +
+          escapeHtml(wikiHref(target, note)) +
+          '">' +
+          escapeHtml(label) +
+          '</a>'
+        )
+      })
+    })
+    .join('')
+}
+
+function markWikilinks() {
+  for (const mark of wikiMarks) mark.clear()
+  wikiMarks = []
+  if (activeTab !== 'markdown') return
+  const n = cm.lineCount()
+  for (let i = 0; i < n; i++) {
+    const line = cm.getLine(i)
+    const re = /\[\[([^\]|\n]+)(?:\|[^\]]+)?\]\]/g
+    let m
+    while ((m = re.exec(line))) {
+      const resolved = resolveWiki(m[1].trim())
+      wikiMarks.push(
+        cm.markText(
+          { line: i, ch: m.index },
+          { line: i, ch: m.index + m[0].length },
+          {
+            className: resolved ? 'cm-wikilink' : 'cm-wikilink-unresolved',
+          }
+        )
+      )
+    }
+  }
+}
+
+function wikiAtPos(pos) {
+  const line = cm.getLine(pos.line)
+  const re = /\[\[([^\]|\n]+)(?:\|[^\]]+)?\]\]/g
+  let m
+  while ((m = re.exec(line))) {
+    if (pos.ch >= m.index && pos.ch <= m.index + m[0].length) return m[1].trim()
+  }
+  return null
+}
+
+function wikiQueryAtCursor() {
+  if (activeTab !== 'markdown') return null
+  const cur = cm.getCursor()
+  const before = cm.getLine(cur.line).slice(0, cur.ch)
+  const start = before.lastIndexOf('[[')
+  if (start === -1) return null
+  const chunk = before.slice(start + 2)
+  if (chunk.indexOf(']]') !== -1) return null
+  return { line: cur.line, from: start, query: chunk }
+}
+
+function wikiPopupOpen() {
+  const el = document.getElementById('wiki-popup')
+  return el && !el.hidden
+}
+
+function hideWikiPopup() {
+  const el = document.getElementById('wiki-popup')
+  if (!el || el.hidden) return false
+  el.hidden = true
+  el.replaceChildren()
+  wikiRows = []
+  return true
+}
+
+function wikiMove(delta) {
+  if (!wikiRows.length) return
+  wikiIndex = (wikiIndex + delta + wikiRows.length) % wikiRows.length
+  const rows = document.querySelectorAll('#wiki-popup .ps-popover__row')
+  rows.forEach((row, i) => {
+    row.setAttribute('aria-selected', i === wikiIndex ? 'true' : 'false')
+  })
+}
+
+function insertWiki(target) {
+  const q = wikiQueryAtCursor()
+  if (!q) return
+  cm.replaceRange(target + ']]', { line: q.line, ch: q.from + 2 }, cm.getCursor())
+  hideWikiPopup()
+}
+
+function wikiPick() {
+  const row = wikiRows[wikiIndex]
+  if (!row) return
+  if (row.type === 'create') {
+    void wikiCreate()
+    return
+  }
+  insertWiki(row.target)
+}
+
+async function wikiCreate() {
+  const q = wikiQueryAtCursor()
+  const target = (q && q.query.trim()) || 'untitled'
+  const note = await createWikiNote(target)
+  if (!note) return
+  insertWiki(target.replace(/\\/g, '/').replace(/\.html$/i, ''))
+  await refreshFiles()
+}
+
+async function createWikiNote(target) {
+  const cleaned = String(target || '')
+    .trim()
+    .replace(/\\/g, '/')
+    .replace(/\.html$/i, '')
+  if (!cleaned) return null
+  const parts = cleaned.split('/').filter(Boolean)
+  const name = parts.pop()
+  let dir
+  for (const part of parts) {
+    const made = await window.api.createDir(part, dir)
+    if (made.error && !made.path) {
+      setStatus(made.error)
+      return null
+    }
+    dir = made.path
+    expandedPaths.add(dir)
+  }
+  const result = await window.api.createFile(name, dir)
+  if (result.error) {
+    setStatus(result.error)
+    return null
+  }
+  return { path: result.path, name: result.name }
+}
+
+async function openWiki(target) {
+  hideWikiPopup()
+  let note = resolveWiki(target)
+  if (!note) {
+    note = await createWikiNote(target)
+    if (!note) return
+    await refreshFiles()
+  }
+  expandTo(note.path)
+  await openListedFile(note)
+}
+
+function updateWikiPopup() {
+  const el = document.getElementById('wiki-popup')
+  if (!el) return
+  const q = wikiQueryAtCursor()
+  if (!q) {
+    hideWikiPopup()
+    return
+  }
+  const query = q.query.toLowerCase()
+  const notes = allNotes().filter((n) => {
+    if (!query) return true
+    return (
+      n.stem.toLowerCase().indexOf(query) !== -1 ||
+      n.rel.toLowerCase().indexOf(query) !== -1 ||
+      n.folder.toLowerCase().indexOf(query) !== -1
+    )
+  })
+  notes.sort((a, b) => a.stem.localeCompare(b.stem))
+  const shown = notes.slice(0, 6)
+  wikiRows = shown.map((n) => ({
+    type: 'note',
+    target: n.rel.replace(/\.html$/i, ''),
+    stem: n.stem,
+    folder: n.folder,
+  }))
+  if (q.query.trim()) {
+    wikiRows.push({ type: 'create', target: q.query.trim() })
+  }
+  if (!wikiRows.length) {
+    hideWikiPopup()
+    return
+  }
+  if (wikiIndex >= wikiRows.length) wikiIndex = 0
+  el.replaceChildren()
+  wikiRows.forEach((row, i) => {
+    const btn = document.createElement('button')
+    btn.type = 'button'
+    btn.className =
+      'ps-popover__row' + (row.type === 'create' ? ' ps-popover__row--create' : '')
+    btn.setAttribute('aria-selected', i === wikiIndex ? 'true' : 'false')
+    if (row.type === 'create') {
+      btn.textContent = 'Create "' + row.target + '"'
+    } else {
+      const name = document.createElement('span')
+      name.textContent = row.stem
+      btn.appendChild(name)
+      if (row.folder) {
+        const folder = document.createElement('span')
+        folder.className = 'ps-popover__folder'
+        folder.textContent = row.folder
+        btn.appendChild(folder)
+      }
+    }
+    btn.addEventListener('mousedown', (event) => {
+      event.preventDefault()
+      wikiIndex = i
+      wikiPick()
+    })
+    el.appendChild(btn)
+  })
+  const coords = cm.cursorCoords(true, 'page')
+  el.hidden = false
+  el.style.left = coords.left + 'px'
+  el.style.top = coords.bottom + 4 + 'px'
+}
+
+async function refreshUnresolved() {
+  const result = await window.api.scanWikilinks()
+  unresolvedTargets = result.items || []
+  renderUnresolved()
+}
+
+function renderUnresolved() {
+  const wrap = document.getElementById('unresolved-wrap')
+  const list = document.getElementById('unresolved')
+  if (!wrap || !list) return
+  list.replaceChildren()
+  if (!unresolvedTargets.length) {
+    wrap.hidden = true
+    return
+  }
+  wrap.hidden = false
+  for (const target of unresolvedTargets) {
+    const li = document.createElement('li')
+    li.className = 'ps-tree__row ps-tree__row--unresolved'
+    li.textContent = target
+    li.addEventListener('click', () => {
+      void openWiki(target)
+    })
+    list.appendChild(li)
+  }
 }
 
 async function refreshFiles() {
@@ -371,23 +929,167 @@ async function refreshFiles() {
   const list = document.getElementById('files')
   list.replaceChildren()
   if (result.error) {
+    treeItems = []
     list.textContent = result.error
     return
   }
-  for (const item of result.items) {
-    const li = document.createElement('li')
-    li.textContent = item.isDir ? item.name + '/' : item.name
-    if (item.isDir) {
-      list.appendChild(li)
-      continue
-    }
-    li.style.cursor = 'pointer'
-    if (item.path === currentPath) li.setAttribute('aria-current', 'true')
-    li.addEventListener('click', () => {
-      void openListedFile(item)
-    })
-    list.appendChild(li)
+  treeItems = result.items
+  renderTree()
+  void refreshUnresolved()
+}
+
+function pathUnder(parent, child) {
+  if (!parent || !child) return false
+  return child === parent || child.startsWith(parent + '/') || child.startsWith(parent + '\\')
+}
+
+function parentOf(filePath) {
+  if (!filePath) return undefined
+  const cut = filePath.replace(/[/\\][^/\\]+$/, '')
+  if (cut === filePath) return undefined
+  return cut
+}
+
+function createParent() {
+  if (selectedIsDir && selectedPath) return selectedPath
+  return parentOf(selectedPath || currentPath)
+}
+
+function retarget(from, to) {
+  if (!from || !to) return
+  if (currentPath && pathUnder(from, currentPath)) {
+    currentPath = to + currentPath.slice(from.length)
   }
+  if (selectedPath && pathUnder(from, selectedPath)) {
+    selectedPath = to + selectedPath.slice(from.length)
+  }
+  const next = new Set()
+  for (const p of expandedPaths) {
+    if (pathUnder(from, p)) next.add(to + p.slice(from.length))
+    else next.add(p)
+  }
+  expandedPaths = next
+}
+
+function expandTo(filePath) {
+  let dir = parentOf(filePath)
+  const root = document.getElementById('path').textContent
+  while (dir && root && dir.length > root.length) {
+    expandedPaths.add(dir)
+    const next = parentOf(dir)
+    if (!next || next === dir) break
+    dir = next
+  }
+}
+
+function clearDropMarks() {
+  for (const el of document.querySelectorAll('.ps-tree__row.is-drop')) {
+    el.classList.remove('is-drop')
+  }
+}
+
+function selectRow(item) {
+  selectedPath = item.path
+  selectedIsDir = !!item.isDir
+}
+
+function appendTree(items, depth, into) {
+  const active = selectedPath || currentPath
+  for (const item of items) {
+    const li = document.createElement('li')
+    li.className = 'ps-tree__row' + (item.isDir ? ' ps-tree__row--folder' : '')
+    li.style.paddingLeft = 6 + depth * 16 + 'px'
+    li.draggable = true
+    if (item.path === active) li.setAttribute('aria-current', 'true')
+    li.addEventListener('dragstart', (event) => {
+      event.dataTransfer.setData('text/plain', item.path)
+    })
+    li.addEventListener('dragend', clearDropMarks)
+    if (item.isDir) {
+      const open = expandedPaths.has(item.path)
+      const twist = document.createElement('button')
+      twist.type = 'button'
+      twist.className = 'ps-tree__twist'
+      twist.textContent = open ? 'v' : '>'
+      twist.setAttribute('aria-label', open ? 'Collapse' : 'Expand')
+      twist.addEventListener('click', (event) => {
+        event.stopPropagation()
+        if (expandedPaths.has(item.path)) expandedPaths.delete(item.path)
+        else expandedPaths.add(item.path)
+        renderTree()
+      })
+      const label = document.createElement('span')
+      label.textContent = item.name
+      li.appendChild(twist)
+      li.appendChild(label)
+      if (!open) {
+        const count = document.createElement('span')
+        count.className = 'ps-count'
+        count.textContent = String(item.children.length)
+        li.appendChild(count)
+      }
+      li.addEventListener('click', () => {
+        selectRow(item)
+        renderTree()
+      })
+      li.addEventListener('dragover', (event) => {
+        event.preventDefault()
+        event.stopPropagation()
+        clearDropMarks()
+        li.classList.add('is-drop')
+      })
+      li.addEventListener('drop', (event) => {
+        event.preventDefault()
+        event.stopPropagation()
+        clearDropMarks()
+        const from = event.dataTransfer.getData('text/plain')
+        if (from) void moveInto(from, item.path)
+      })
+      into.appendChild(li)
+      if (open) appendTree(item.children, depth + 1, into)
+    } else {
+      const label = document.createElement('span')
+      label.textContent = item.name
+      li.appendChild(label)
+      li.addEventListener('click', () => {
+        selectRow(item)
+        void openListedFile(item)
+      })
+      li.addEventListener('dragover', (event) => {
+        event.preventDefault()
+        event.stopPropagation()
+      })
+      li.addEventListener('drop', (event) => {
+        event.preventDefault()
+        event.stopPropagation()
+        clearDropMarks()
+        const from = event.dataTransfer.getData('text/plain')
+        if (from) void moveInto(from, parentOf(item.path))
+      })
+      into.appendChild(li)
+    }
+  }
+}
+
+function renderTree() {
+  const list = document.getElementById('files')
+  list.replaceChildren()
+  appendTree(treeItems, 0, list)
+  renderUnresolved()
+}
+
+async function moveInto(from, dirPath) {
+  if (!from || from === dirPath) return
+  const dest = dirPath || (await window.api.getVault())
+  if (!dest) return
+  const result = await window.api.moveFile(from, dest)
+  if (result.error) {
+    setStatus(result.error)
+    return
+  }
+  retarget(from, result.path)
+  updateChrome()
+  await refreshFiles()
 }
 
 async function openListedFile(item) {
@@ -403,16 +1105,24 @@ async function openListedFile(item) {
     return
   }
   currentPath = item.path
+  selectedPath = item.path
+  selectedIsDir = false
+  expandTo(item.path)
   dirty = false
   clearTimeout(saveTimer)
   loadNote(file.content)
   showTab('markdown')
   setStatus('Saved')
+  updateChrome()
   await refreshFiles()
 }
 
 async function showVault(folder) {
   currentPath = null
+  selectedPath = null
+  selectedIsDir = false
+  expandedPaths = new Set()
+  treeItems = []
   dirty = false
   clearTimeout(saveTimer)
   buffers.markdown = ''
@@ -421,7 +1131,9 @@ async function showVault(folder) {
   lastBody = 'markdown'
   showTab('markdown')
   document.getElementById('path').textContent = folder
+  setEmptyVault(false)
   setStatus('')
+  updateChrome()
   await refreshFiles()
 }
 
@@ -467,6 +1179,16 @@ document.getElementById('open').addEventListener('click', async () => {
   await showVault(folder)
 })
 
+document.getElementById('files').addEventListener('dragover', (event) => {
+  event.preventDefault()
+})
+document.getElementById('files').addEventListener('drop', (event) => {
+  event.preventDefault()
+  clearDropMarks()
+  const from = event.dataTransfer.getData('text/plain')
+  if (from) void moveInto(from, null)
+})
+
 document.getElementById('new-file').addEventListener('click', async () => {
   const folder = await window.api.getVault()
   if (!folder) {
@@ -475,59 +1197,96 @@ document.getElementById('new-file').addEventListener('click', async () => {
   }
   const name = await askName('Note name')
   if (name == null || !name.trim()) return
-  const result = await window.api.createFile(name)
+  const result = await window.api.createFile(name, createParent())
   if (result.error) {
     setStatus(result.error)
     return
   }
   currentPath = result.path
+  selectedPath = result.path
+  selectedIsDir = false
+  expandTo(result.path)
   dirty = false
   loadNote(
     '<!DOCTYPE html>\n<html>\n<head>\n<meta charset="utf-8">\n</head>\n<body>\n</body>\n</html>\n'
   )
   showTab('markdown')
   setStatus('Saved')
+  updateChrome()
+  await refreshFiles()
+})
+
+document.getElementById('new-folder').addEventListener('click', async () => {
+  const folder = await window.api.getVault()
+  if (!folder) {
+    setStatus('Open a vault first.')
+    return
+  }
+  const name = await askName('Folder name')
+  if (name == null || !name.trim()) return
+  const result = await window.api.createDir(name, createParent())
+  if (result.error) {
+    setStatus(result.error)
+    return
+  }
+  selectedPath = result.path
+  selectedIsDir = true
+  expandTo(result.path)
   await refreshFiles()
 })
 
 document.getElementById('rename-file').addEventListener('click', async () => {
-  if (!currentPath) {
-    setStatus('Open a file first.')
+  const target = selectedPath || currentPath
+  if (!target) {
+    setStatus('Select a file first.')
     return
   }
-  const currentName = currentPath.split(/[/\\]/).pop().replace(/\.html$/i, '')
-  const name = await askName('Rename to', currentName)
+  const leaf = target.split(/[/\\]/).pop()
+  const initial = selectedIsDir ? leaf : leaf.replace(/\.html$/i, '')
+  const name = await askName('Rename to', initial)
   if (name == null || !name.trim()) return
-  const result = await window.api.renameFile(currentPath, name)
+  const result = await window.api.renameFile(target, name)
   if (result.error) {
     setStatus(result.error)
     return
   }
-  currentPath = result.path
-  setStatus('Saved')
+  retarget(target, result.path)
+  if (!selectedIsDir) setStatus('Saved')
+  updateChrome()
   await refreshFiles()
 })
 
 document.getElementById('delete-file').addEventListener('click', async () => {
-  if (!currentPath) {
-    setStatus('Open a file first.')
+  const target = selectedPath || currentPath
+  if (!target) {
+    setStatus('Select a file first.')
     return
   }
-  if (!(await askConfirm('Delete this note?'))) return
-  const result = await window.api.deleteFile(currentPath)
+  const msg = selectedIsDir
+    ? 'Delete this folder and its contents?'
+    : 'Delete this note?'
+  if (!(await askConfirm(msg))) return
+  const result = await window.api.deleteFile(target)
   if (result.error) {
     setStatus(result.error)
     return
   }
-  currentPath = null
-  dirty = false
-  clearTimeout(saveTimer)
-  buffers.markdown = ''
-  buffers.html = ''
-  buffers.cssjs = ''
-  lastBody = 'markdown'
-  showTab('markdown')
+  if (currentPath && pathUnder(target, currentPath)) {
+    currentPath = null
+    dirty = false
+    clearTimeout(saveTimer)
+    buffers.markdown = ''
+    buffers.html = ''
+    buffers.cssjs = ''
+    lastBody = 'markdown'
+    showTab('markdown')
+  }
+  if (selectedPath && pathUnder(target, selectedPath)) {
+    selectedPath = null
+    selectedIsDir = false
+  }
   setStatus('Deleted')
+  updateChrome()
   await refreshFiles()
 })
 
@@ -545,22 +1304,122 @@ async function saveFile() {
   }
   dirty = false
   setStatus('Saved')
+  updateChrome()
+  void refreshUnresolved()
+  markWikilinks()
 }
 
 document.getElementById('save').addEventListener('click', () => {
   void saveFile()
 })
 
+function markdownForExport() {
+  buffers[activeTab] = cm.getValue()
+  if (activeTab === 'markdown') return cm.getValue()
+  if (activeTab === 'html') {
+    const html = cm.getValue()
+    return html.trim() ? turndown.turndown(html) : ''
+  }
+  if (buffers.html.trim()) return turndown.turndown(buffers.html)
+  return buffers.markdown
+}
+
+document.getElementById('export-md').addEventListener('click', async () => {
+  const leaf = currentPath ? currentPath.split(/[/\\]/).pop() : 'untitled'
+  const result = await window.api.exportMarkdown(markdownForExport(), leaf)
+  if (result.canceled) return
+  if (result.error) {
+    setStatus(result.error)
+    return
+  }
+  setStatus('Exported')
+})
+
 window.addEventListener('keydown', (event) => {
-  if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
+  if (!(event.metaKey || event.ctrlKey) || event.altKey) return
+  const key = event.key
+  if (key.toLowerCase() === 's') {
     event.preventDefault()
     void saveFile()
+  } else if (key === '1') {
+    event.preventDefault()
+    setTab('markdown')
+  } else if (key === '2') {
+    event.preventDefault()
+    setTab('html')
+  } else if (key === '3') {
+    event.preventDefault()
+    setTab('cssjs')
   }
+})
+
+document.getElementById('theme-toggle').addEventListener('click', () => {
+  applyTheme(!document.documentElement.classList.contains('dark'))
+})
+
+document.getElementById('shell-toggle').addEventListener('click', (event) => {
+  const btn = event.target.closest('[data-shell]')
+  if (!btn) return
+  applyShell(btn.dataset.shell)
+})
+
+document.querySelector('.ps-utility-hdr').addEventListener('click', (event) => {
+  const btn = event.target.closest('[data-util]')
+  if (!btn) return
+  for (const el of document.querySelectorAll('.ps-utility-hdr [data-util]')) {
+    el.setAttribute('aria-selected', el === btn ? 'true' : 'false')
+  }
+  document.getElementById('utility-body').textContent = UTIL_EMPTY[btn.dataset.util]
+})
+
+document.querySelector('.ps-dock__tabs').addEventListener('click', (event) => {
+  const fold = event.target.closest('#dock-fold')
+  if (fold) {
+    const dock = document.getElementById('dock')
+    const collapsed = dock.classList.toggle('is-collapsed')
+    fold.textContent = collapsed ? '^' : 'v'
+    fold.setAttribute('aria-label', collapsed ? 'Expand dock' : 'Collapse dock')
+    requestAnimationFrame(() => cm.refresh())
+    return
+  }
+  const btn = event.target.closest('[data-dock]')
+  if (!btn) return
+  for (const el of document.querySelectorAll('.ps-dock__tab[data-dock]')) {
+    el.setAttribute('aria-selected', el === btn ? 'true' : 'false')
+  }
+  document.getElementById('dock-body').textContent = DOCK_EMPTY[btn.dataset.dock]
+})
+
+document.getElementById('empty-open').addEventListener('click', () => {
+  document.getElementById('open').click()
+})
+
+initTheme()
+initShell()
+updateChrome()
+
+window.addEventListener('message', (event) => {
+  if (event.source !== preview.contentWindow) return
+  if (!event.data || event.data.pitchstone !== 'wiki') return
+  const href = String(event.data.href || '')
+    .replace(/\\/g, '/')
+    .replace(/\.html$/i, '')
+  if (href) void openWiki(href)
+})
+
+document.addEventListener('mousedown', (event) => {
+  const el = document.getElementById('wiki-popup')
+  if (!el || el.hidden) return
+  if (el.contains(event.target) || cm.getWrapperElement().contains(event.target)) {
+    return
+  }
+  hideWikiPopup()
 })
 
 void (async () => {
   const folder = await window.api.getVault()
   if (folder) await showVault(folder)
+  else setEmptyVault(true)
 })()
 
 updatePreview()

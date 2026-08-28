@@ -1,0 +1,32 @@
+/**
+ * Grain — brand surfaces ONLY (splash, empty/new-chat hero, onboarding/about).
+ * FORBIDDEN on: message bubbles, composer, settings rows/forms, sidebar list,
+ * any data-bearing UI. Grain is a mood device, not a texture default.
+ *
+ * Recipe: SVG feTurbulence noise, tiled, blended with mix-blend-mode so it
+ * reads as print grain instead of a flat opacity wash — this keeps it from
+ * muddying glass surfaces underneath: apply .grain-overlay as a sibling layer
+ * ON TOP of the blurred surface's own background, never baked into the same
+ * element that carries backdrop-filter (blur + noise in one paint pass looks
+ * like static, not grain).
+ */
+:root {
+  --grain-opacity-light: 0.05; /* @kind other */
+  --grain-opacity-dark: 0.09; /* @kind other */
+  --grain-svg: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); /* @kind other */
+}
+
+.grain-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: var(--grain-svg);
+  background-size: 180px 180px;
+  opacity: var(--grain-opacity-light);
+  mix-blend-mode: overlay;
+  border-radius: inherit;
+}
+.dark .grain-overlay {
+  opacity: var(--grain-opacity-dark);
+  mix-blend-mode: soft-light;
+}

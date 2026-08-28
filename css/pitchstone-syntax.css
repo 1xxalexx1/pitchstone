@@ -1,0 +1,128 @@
+/* CodeMirror 5 theme: pitchstone.
+   Replaces material-darker. Works in light and dark from the same rules —
+   the values come from --cs-* and flip with the .dark class on the root.
+   Usage: CodeMirror.fromTextArea(el, { theme: 'pitchstone' })
+   Token mapping and rationale: design/DESIGN_SPEC.md section 4. */
+
+:root {
+  --sy-text:  var(--cs-foreground);
+  --sy-com:   var(--cs-ink-400);
+  --sy-key:   var(--cs-terracotta-700);
+  --sy-str:   var(--cs-forest-700);
+  --sy-tag:   var(--cs-blue-600);
+  --sy-attr:  var(--cs-terracotta-600);
+  --sy-prop:  var(--cs-blue-700);
+  --sy-def:   var(--cs-forest-600);
+  --sy-num:   var(--cs-blue-500);
+  --sy-punc:  var(--cs-ink-500);
+  --sy-link:  var(--cs-primary);
+}
+
+.dark {
+  --sy-com:   var(--cs-foreground-tertiary);
+  --sy-key:   var(--cs-terracotta-300);
+  --sy-str:   var(--cs-forest-300);
+  --sy-tag:   var(--cs-blue-300);
+  --sy-attr:  var(--cs-terracotta-200);
+  --sy-prop:  var(--cs-blue-200);
+  --sy-def:   var(--cs-forest-200);
+  --sy-num:   var(--cs-blue-200);
+  --sy-punc:  var(--cs-muted-foreground);
+}
+
+.cm-s-pitchstone.CodeMirror {
+  background: var(--cs-card);
+  color: var(--sy-text);
+  font: var(--ps-code-size, 13.5px)/var(--ps-code-line, 21px) var(--ps-code-font, ui-monospace, Menlo, Consolas, monospace);
+  height: auto;
+}
+.cm-s-pitchstone .CodeMirror-gutters {
+  background: var(--cs-card);
+  border-right: 0;
+  color: var(--cs-foreground-tertiary);
+}
+.cm-s-pitchstone .CodeMirror-linenumber,
+.cm-s-pitchstone .CodeMirror-guttermarker,
+.cm-s-pitchstone .CodeMirror-guttermarker-subtle { color: var(--cs-foreground-tertiary); }
+.cm-s-pitchstone .CodeMirror-activeline-background { background: var(--cs-accent); }
+.cm-s-pitchstone .CodeMirror-activeline .CodeMirror-linenumber { color: var(--cs-primary); font-weight: 600; }
+.cm-s-pitchstone .CodeMirror-cursor { border-left: 1.5px solid var(--cs-primary); }
+.cm-s-pitchstone div.CodeMirror-selected,
+.cm-s-pitchstone.CodeMirror-focused div.CodeMirror-selected { background: var(--cs-accent); }
+.cm-s-pitchstone .CodeMirror-matchingbracket { color: var(--cs-primary) !important; text-decoration: underline; }
+.cm-s-pitchstone .CodeMirror-nonmatchingbracket { color: var(--cs-destructive) !important; }
+.cm-s-pitchstone .CodeMirror-placeholder { color: var(--cs-foreground-tertiary); }
+
+.cm-s-pitchstone .cm-comment    { color: var(--sy-com); font-style: italic; }
+.cm-s-pitchstone .cm-keyword,
+.cm-s-pitchstone .cm-atom       { color: var(--sy-key); }
+.cm-s-pitchstone .cm-string,
+.cm-s-pitchstone .cm-string-2   { color: var(--sy-str); }
+.cm-s-pitchstone .cm-tag,
+.cm-s-pitchstone .cm-qualifier  { color: var(--sy-tag); }
+.cm-s-pitchstone .cm-attribute,
+.cm-s-pitchstone .cm-meta       { color: var(--sy-attr); }
+.cm-s-pitchstone .cm-property,
+.cm-s-pitchstone .cm-builtin    { color: var(--sy-prop); }
+.cm-s-pitchstone .cm-def,
+.cm-s-pitchstone .cm-variable,
+.cm-s-pitchstone .cm-variable-2,
+.cm-s-pitchstone .cm-variable-3,
+.cm-s-pitchstone .cm-type       { color: var(--sy-def); }
+.cm-s-pitchstone .cm-number     { color: var(--sy-num); }
+.cm-s-pitchstone .cm-operator,
+.cm-s-pitchstone .cm-bracket,
+.cm-s-pitchstone .cm-punctuation { color: var(--sy-punc); }
+
+/* markdown view */
+.cm-s-pitchstone .cm-header     { color: var(--sy-text); font-weight: 600; }
+.cm-s-pitchstone .cm-quote      { color: var(--cs-muted-foreground); font-style: italic; }
+.cm-s-pitchstone .cm-link       { color: var(--sy-link); }
+.cm-s-pitchstone .cm-url        { color: var(--sy-str); }
+.cm-s-pitchstone .cm-hr         { color: var(--cs-border-strong); }
+.cm-s-pitchstone .cm-em         { font-style: italic; }
+.cm-s-pitchstone .cm-strong     { font-weight: 600; }
+
+/* the ---js--- delimiter of the CSS+JS multiplexing mode */
+.cm-s-pitchstone .cm-delimit {
+  color: var(--cs-primary);
+  font-weight: 600;
+  background: var(--cs-accent);
+}
+
+/* wikilinks (M8) — mark the range with cm.markText({ className: 'cm-wikilink' }) */
+.cm-s-pitchstone .cm-wikilink { color: var(--cs-primary); border-bottom: 1px dotted var(--cs-primary); cursor: pointer; }
+.cm-s-pitchstone .cm-wikilink-unresolved { color: var(--cs-primary); opacity: .7; border-bottom: 1px dashed var(--cs-primary); font-style: italic; }
+
+/* diagnostics (M13) — lint addon + line classes */
+.cm-s-pitchstone .cm-error { color: inherit; background: transparent; text-decoration: underline wavy var(--cs-destructive); text-underline-offset: 3px; }
+.cm-s-pitchstone .ps-line-error { background: color-mix(in oklch, var(--cs-destructive) 10%, transparent); }
+.cm-s-pitchstone .ps-line-warn  { background: color-mix(in oklch, var(--cs-warning) 12%, transparent); }
+.cm-s-pitchstone .CodeMirror-lint-marker-error,
+.cm-s-pitchstone .CodeMirror-lint-marker-warning { background-image: none; font: 11px/1 var(--ps-code-font, monospace); text-align: center; }
+.cm-s-pitchstone .CodeMirror-lint-marker-error::after   { content: '\2715'; color: var(--cs-destructive); }
+.cm-s-pitchstone .CodeMirror-lint-marker-warning::after { content: '\26A0'; color: var(--cs-warning); }
+.cm-s-pitchstone .CodeMirror-lint-tooltip {
+  background: var(--cs-popover);
+  color: var(--cs-popover-foreground);
+  border: 1px solid var(--cs-border);
+  border-radius: var(--cs-radius-md);
+  box-shadow: 0 12px 30px oklch(0 0 0 / .26);
+  font: 400 12px/1.5 var(--cs-font-family-body);
+  padding: 8px 10px;
+}
+
+/* inline diagnostic row rendered between code lines via cm.addLineWidget */
+.ps-inline-diagnostic {
+  display: flex; align-items: center; gap: 8px;
+  margin-left: 62px;
+  font: 400 12px/18px var(--cs-font-family-body);
+  color: var(--cs-destructive);
+}
+.ps-inline-diagnostic__body {
+  border: 1px solid color-mix(in oklch, var(--cs-destructive) 45%, transparent);
+  background: color-mix(in oklch, var(--cs-destructive) 12%, transparent);
+  border-radius: 4px;
+  padding: 1px 7px;
+}
+.ps-inline-diagnostic__fix { color: var(--cs-primary); }
