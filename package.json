@@ -1,7 +1,7 @@
 {
-  "name": "hybrid-editor",
+  "name": "pitchstone",
   "version": "1.0.0",
-  "description": "Markdown editor with HTML editing capabilities and live preview",
+  "description": "Local vault notes: HTML on disk, Markdown or HTML to edit, sandboxed live preview",
   "main": "main.js",
   "scripts": {
     "start": "electron ."
@@ -11,6 +11,8 @@
   },
   "license": "MIT",
   "dependencies": {
-    "marked": "^18.0.11"
+    "codemirror": "^5.65.21",
+    "marked": "^18.0.11",
+    "turndown": "^7.2.4"
   }
 }

@@ -1,64 +1,119 @@
-# Hybrid Editor — AGENTS.md
+# Pitchstone — AGENTS.md
 
-A desktop Markdown/HTML hybrid editor: pick a folder ("vault"), browse files, edit
-Markdown (and later raw HTML/CSS/JS), see a live preview. Being built in public —
-code must stay presentable, readable, and honest.
+Local-first notes app: a folder on disk (“vault”), like Obsidian. **On disk a
+note is HTML.** You can write it as Markdown or as HTML — Markdown is an editing
+view (marked → HTML, turndown ← HTML), not the file format. CSS and JS live in
+that same HTML file (`<style>` / `<script>`), edited from the CSS+JS tab.
+Markdown when you want speed; HTML/CSS/JS when you want a real page. Not a
+web-app builder. Not a VS Code fork. A vault you can actually live in.
 
-## Stack (REALITY — do not change)
+Being built in public — code stays presentable, readable, and honest.
 
-- **Vanilla Electron** (Electron 34), **plain JavaScript** — NO React, NO TypeScript,
-  NO Tailwind, NO electron-vite, NO build step. This was decided deliberately so the
-  owner can read every line and understand it. Do not introduce a framework, a
-  bundler, a transpiler, or a new dependency unless a milestone explicitly asks for it.
-- `marked` is the only planned new dependency (Markdown → HTML).
-- Security stays as-is: `contextIsolation: true`, `nodeIntegration: false`, IPC via
-  preload contextBridge, and `resolveInVault()` path guard in main.js. Never weaken
-  these. New IPC handlers must go through the same guard.
+## What this is
 
-## Current State (what exists)
+- User-picked vault. No hardcoded paths.
+- Notes are **HTML files**. The vault is the source of truth.
+- Markdown tab and HTML tab edit the same document. Save writes HTML.
+- CSS+JS tab edits `<style>` / `<script>` in that file, not sidecars.
+- Preview in a sandboxed iframe (`allow-scripts`, never `allow-same-origin`).
+  Preview JS cannot touch the editor or the rest of the disk.
+
+## What this is not (yet)
+
+Mobile, publish, and “compatible with Obsidian’s plugin API.” Those stay off
+until they are a milestone. Wikilinks, search, backlinks, plugins, sync, LSP,
+an agent panel, and a possible React shell *are* on the list — after v0, not
+instead of it.
+
+## Stack (v0 — do not change mid-flight)
+
+- **Vanilla Electron 34**, **plain JavaScript**. No React, no TypeScript, no
+  Tailwind, no shadcn, no electron-vite, no bundler.
+- Runtime deps that already exist: `marked`, `turndown`, CodeMirror 5. Do not
+  add another unless the current milestone names it.
+- **M16** is a React + TypeScript UI rewrite if we do one. That is the planned
+  target (ecosystem, Electron examples, component libraries). It is not the only
+  correct notes-app framework — Obsidian is not React — and it is not v0.
+  Svelte/Solid would also work; we pick one framework when M16 starts, default
+  React. Tailwind/shadcn only in that milestone, not before.
+
+This was originally “so the owner can read every line.” That still holds for v0.
+Do not rewrite the app to start M7. Note format stays **HTML files** + sandboxed
+iframe across a UI rewrite so plugins and notes do not die with the shell.
+
+## Security (do not weaken)
+
+- `contextIsolation: true`, `nodeIntegration: false`
+- IPC only through preload `contextBridge` (`window.api`)
+- `resolveInVault()` in `main.js` for any renderer-supplied path. New handlers
+  use the same guard. `read-dir` lists `vaultRoot` and does not take a renderer path.
+
+## Current state
 
 | File | Purpose |
 |---|---|
-| `main.js` | Window, vault selection dialog, IPC: read-dir / read-file / write-file (all vault-guarded) |
-| `preload.js` | contextBridge exposing `window.api` |
-| `renderer.js` | Open folder, file list, open/save, live markdown preview (marked + 100ms debounce) |
-| `index.html` | Dark split layout: file list, editor left, sandboxed preview iframe right |
+| `main.js` | Window, vault dialog, last-vault store, guarded file IPC |
+| `preload.js` | Forwards `window.api.*` → `ipcRenderer.invoke` |
+| `renderer.js` | Vault UI, tabs, CodeMirror, preview, HTML open/save |
+| `index.html` | Dark split layout: file list, editor, sandboxed preview |
 
-Working: open a vault, list files, open, edit, save, live markdown preview.
-Git: baseline commit exists; every milestone below gets its own commit.
+Working: vault files, tabs, HTML save, create/rename/delete, last vault remembered,
+autosave with Unsaved/Saved. Nested folders are M7. One commit per finished
+milestone.
 
-## Rules for this project
+## How we work
 
-1. **Teaching mode is mandatory.** Explain every file and every non-obvious decision
-   in plain language as you build — what the code does and *why it's written that way*.
-   No silent bulk code dumps. This project exists to teach the owner JavaScript,
-   Electron, and web fundamentals.
-2. **Work one milestone at a time.** Finish it, verify it runs (`npm start`), then
-   commit with a clear message. Never start the next milestone mid-way through the
-   previous one.
-3. **No scope creep.** If an idea isn't in the milestone list, don't build it — note
-   it and move on.
-4. Keep code plain and readable: small functions, obvious names, no clever one-liners,
-   no minification, ASCII-first UI text.
-5. No personal paths, no absolute paths hardcoded — the vault is always user-picked.
+1. **Ship.** No teaching comments in the repo. No line-by-line class unless asked.
+2. **One milestone at a time.** Finish it, `npm start`, then commit. Do not start
+   the next milestone mid-way.
+3. **No scope creep.** If it is not in the list below, note it and skip it.
+4. Plain code: small functions, obvious names, ASCII-first UI text.
+5. Vault path is always user-picked.
 
 ## Milestones
 
-- [x] **M1 — Window + vault IPC**: empty Electron window, select-vault dialog, guarded
-  read/write IPC (DONE in scaffold).
-- [x] **M2 — File list + open + save**: flat vault file list, click to open, save via
-  button and Cmd/Ctrl+S (DONE in scaffold).
-- [x] **M3 — Split view + live preview**: editor left, preview right; preview is a
-  sandboxed `<iframe>` rendering `marked(content)` with a debounce (~100ms).
-- [ ] **M4 — Tabs**: Markdown / HTML / CSS+JS tabs above the editor; CSS+JS content
-  injected into the preview iframe (style/script tags); HTML tab injects raw HTML when
-  used. This is the "batshit crazy HTML" tab — full control, sandboxed iframe.
-- [ ] **M5 — Vault polish**: create/rename/delete files in the tree, remember last
-  vault (persist path), auto-save on change with visible save state.
-- [ ] **M6 — Public v0**: README with screenshots and honest scope, MIT license,
-  final polish pass, push public.
+### v0 — hybrid vault editor (ship this)
 
-## UI notes
+- [x] **M1 — Window + vault IPC**: Electron window, select-vault, guarded IPC.
+- [x] **M2 — File list + open + save**: flat list, click to open, Save and Cmd/Ctrl+S.
+- [x] **M3 — Split view + live preview**: editor left, sandboxed iframe right;
+  `marked` + ~100ms debounce.
+- [x] **M4 — Tabs**: Markdown / HTML / CSS+JS above the editor; convert between
+  them (MD ↔ HTML; CSS stubs from tags). Preview is the HTML document (body +
+  style + script). CodeMirror highlighting + completion (not LSP). Open/save
+  the note as HTML — Markdown tab is a view.
+- [x] **M5 — Vault polish**: create / rename / delete in the tree, remember last
+  vault, auto-save with visible dirty/saved state. New notes are `.html`.
+  Nested folders deferred to M7.
+- [x] **M6 — Public v0**: README with honest scope, MIT license, polish.
+  Push to a remote when you say so — not automatic.
 
-Not a sterile SaaS app. Give it a little personality — dark, dense, tool-like,
-zero corporate chrome. Function first, character second.
+### After v0 — notes app (do not start before you ask)
+
+- [ ] **M7 — Nested vault**: folders as a real tree, not a flat list.
+- [ ] **M8 — Wikilinks**: `[[note]]` in the Markdown view (stored as links in
+  the HTML). Click to open, create if missing.
+- [ ] **M9 — Search**: filter the vault by filename and full text.
+- [ ] **M10 — Backlinks**: show notes that link here.
+- [ ] **M11 — Graph** (optional): local graph of wikilinks. Skip if M10 is enough.
+- [ ] **M12 — Agent panel**: a side panel that talks to **whichever agent you
+  run**, via adapters — pi, Cursor, Claude Code, OpenCode, and anything else
+  that can speak a documented stdin/stdout or HTTP contract. The app is not
+  married to one vendor. Agents may propose vault edits; writes still go
+  through `resolveInVault()`.
+- [ ] **M13 — LSP**: hover, diagnostics, completion from language servers
+  (HTML/CSS/JS; Markdown if a server is worth it). Likely Monaco or CodeMirror 6
+  plus servers spawned from main. Servers only see vault paths.
+- [ ] **M14 — Plugins**: vault-installable, **sandboxed** (same iframe rules as
+  note JS). No raw Node, no bypassing `resolveInVault()`. Plugin API is files +
+  events, not “must be React components,” so M16 cannot kill them.
+- [ ] **M15 — Sync**: pick the mechanism at this milestone (git remote, or a
+  real protocol). Local vault remains canonical. No mystery cloud by default.
+- [ ] **M16 — React rewrite** (optional): new renderer shell in React + TS.
+  Notes, preview sandbox, IPC, and plugin format do not change. Only do this
+  when the vanilla UI is actually drowning — or when you explicitly start M16.
+
+## UI
+
+Not a sterile SaaS app. Dark, dense, tool-like, zero corporate chrome.
+Function first, character second.

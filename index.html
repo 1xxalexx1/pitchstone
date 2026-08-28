@@ -2,8 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Hybrid Editor</title>
+  <title>Pitchstone</title>
   <style>
+    :root { --accent: #e07040; --accent-dim: #8a4a32; }
     * { box-sizing: border-box; }
     html, body {
       height: 100%;
@@ -18,6 +19,7 @@
     }
     #toolbar {
       display: flex;
+      flex-wrap: wrap;
       gap: 8px;
       align-items: center;
       padding: 8px 10px;
@@ -27,17 +29,17 @@
     button {
       background: #2a2723;
       color: #d8d2c8;
-      border: 1px solid #6b5a38;
+      border: 1px solid var(--accent-dim);
       padding: 4px 10px;
       font: inherit;
     }
     button:hover { background: #35322c; }
-    button:focus-visible { outline: 2px solid #c4a35a; outline-offset: 1px; }
+    button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
     #path, #status {
       margin: 0;
     }
     #path { color: #9a9186; }
-    #status { margin-left: auto; color: #c4a35a; }
+    #status { margin-left: auto; color: var(--accent); }
     #workspace {
       flex: 1;
       display: flex;
@@ -52,48 +54,153 @@
       border-right: 1px solid #3a3530;
       background: #1c1a17;
     }
-    #files li {
-      padding: 3px 10px;
-    }
     #files li:hover { background: #2a2723; }
+    #files li[aria-current="true"] {
+      background: #2a2723;
+      color: #e8e2d6;
+      box-shadow: inset 2px 0 0 var(--accent);
+    }
     #split {
       flex: 1;
       display: flex;
       min-width: 0;
+    }
+    #editor-pane {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+    #tabs {
+      display: flex;
+      background: #1c1a17;
+      border-bottom: 1px solid #3a3530;
+    }
+    #tabs button {
+      border: 0;
+      border-right: 1px solid #3a3530;
+      border-radius: 0;
+      padding: 5px 12px;
+      background: transparent;
+      color: #9a9186;
+    }
+    #tabs button:hover { background: #2a2723; }
+    #tabs button[aria-selected="true"] {
+      background: #161412;
+      color: #e8e2d6;
+      box-shadow: inset 0 -2px 0 var(--accent);
     }
     #editor, #preview {
       flex: 1;
       min-width: 0;
       border: 0;
     }
-    #editor {
-      resize: none;
-      padding: 12px;
-      background: #161412;
-      color: #e8e2d6;
+    #editor-pane .CodeMirror {
+      flex: 1;
+      height: auto;
+      min-height: 0;
       font: 14px/1.5 ui-monospace, Menlo, Consolas, monospace;
-      outline: none;
+      background: #161412;
     }
     #preview {
       border-left: 1px solid #3a3530;
       background: #1e1c19;
     }
+    .CodeMirror-hints { z-index: 20; }
+    dialog {
+      background: #1c1a17;
+      color: #d8d2c8;
+      border: 1px solid var(--accent-dim);
+      padding: 12px 14px;
+      font: inherit;
+    }
+    dialog::backdrop { background: rgba(0, 0, 0, 0.55); }
+    dialog form {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    dialog input {
+      background: #161412;
+      color: #e8e2d6;
+      border: 1px solid #3a3530;
+      padding: 4px 8px;
+      font: inherit;
+    }
+    dialog input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+    .dialog-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+    }
   </style>
+  <link rel="stylesheet" href="node_modules/codemirror/lib/codemirror.css">
+  <link rel="stylesheet" href="node_modules/codemirror/addon/hint/show-hint.css">
+  <link rel="stylesheet" href="node_modules/codemirror/addon/lint/lint.css">
+  <link rel="stylesheet" href="node_modules/codemirror/theme/material-darker.css">
 </head>
 <body>
   <div id="toolbar">
     <button type="button" id="open">Open</button>
     <button type="button" id="save">Save</button>
+    <button type="button" id="new-file">New</button>
+    <button type="button" id="rename-file">Rename</button>
+    <button type="button" id="delete-file">Delete</button>
     <p id="path">no folder yet</p>
     <p id="status"></p>
   </div>
   <div id="workspace">
     <ul id="files"></ul>
     <div id="split">
-      <textarea id="editor" spellcheck="false" aria-label="Markdown"></textarea>
-      <iframe id="preview" sandbox title="Preview"></iframe>
+      <div id="editor-pane">
+        <div id="tabs" role="tablist" aria-label="Editor mode">
+          <button type="button" role="tab" data-tab="markdown" aria-selected="true" aria-controls="editor">Markdown</button>
+          <button type="button" role="tab" data-tab="html" aria-selected="false" aria-controls="editor">HTML</button>
+          <button type="button" role="tab" data-tab="cssjs" aria-selected="false" aria-controls="editor">CSS+JS</button>
+        </div>
+        <textarea id="editor" spellcheck="false" role="tabpanel" aria-label="Markdown"></textarea>
+      </div>
+      <iframe id="preview" sandbox="allow-scripts" title="Preview"></iframe>
     </div>
   </div>
+  <dialog id="name-dialog">
+    <form method="dialog">
+      <label id="name-dialog-label" for="name-dialog-input">Note name</label>
+      <input id="name-dialog-input" name="name" autocomplete="off">
+      <div class="dialog-actions">
+        <button type="submit" value="ok">OK</button>
+        <button type="submit" value="cancel">Cancel</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="confirm-dialog">
+    <form method="dialog">
+      <p id="confirm-dialog-text"></p>
+      <div class="dialog-actions">
+        <button type="submit" value="ok">OK</button>
+        <button type="submit" value="cancel">Cancel</button>
+      </div>
+    </form>
+  </dialog>
+  <script src="node_modules/codemirror/lib/codemirror.js"></script>
+  <script src="node_modules/codemirror/mode/xml/xml.js"></script>
+  <script src="node_modules/codemirror/mode/javascript/javascript.js"></script>
+  <script src="node_modules/codemirror/mode/css/css.js"></script>
+  <script src="node_modules/codemirror/mode/htmlmixed/htmlmixed.js"></script>
+  <script src="node_modules/codemirror/mode/markdown/markdown.js"></script>
+  <script src="node_modules/codemirror/addon/mode/multiplex.js"></script>
+  <script src="node_modules/codemirror/addon/edit/matchbrackets.js"></script>
+  <script src="node_modules/codemirror/addon/edit/closebrackets.js"></script>
+  <script src="node_modules/codemirror/addon/edit/closetag.js"></script>
+  <script src="node_modules/codemirror/addon/display/placeholder.js"></script>
+  <script src="node_modules/codemirror/addon/hint/show-hint.js"></script>
+  <script src="node_modules/codemirror/addon/hint/xml-hint.js"></script>
+  <script src="node_modules/codemirror/addon/hint/html-hint.js"></script>
+  <script src="node_modules/codemirror/addon/hint/css-hint.js"></script>
+  <script src="node_modules/codemirror/addon/hint/javascript-hint.js"></script>
+  <script src="node_modules/codemirror/addon/hint/anyword-hint.js"></script>
+  <script src="node_modules/codemirror/addon/lint/lint.js"></script>
+  <script src="node_modules/turndown/lib/turndown.browser.umd.js"></script>
   <script src="node_modules/marked/lib/marked.umd.js"></script>
   <script src="renderer.js"></script>
 </body>
