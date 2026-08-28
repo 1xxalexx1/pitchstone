@@ -1,11 +1,12 @@
 {
   "name": "pitchstone",
   "version": "1.0.0",
+  "productName": "Pitchstone",
   "description": "Local vault notes: HTML on disk, Markdown or HTML to edit, sandboxed live preview",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "test": "node scripts/verify-vault-scan.js"
+    "test": "node scripts/verify-vault-scan.js && node scripts/verify-agent-bridge.js"
   },
   "devDependencies": {
     "electron": "^34.0.0"

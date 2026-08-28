@@ -14,26 +14,17 @@ html, body { overflow: hidden; }
   border-radius: 0;
 }
 #empty-vault[hidden] { display: none !important; }
-.ps-titlebar__brand {
-  font: 600 12px/1 var(--ps-ui-font);
-  letter-spacing: 0.06em;
-  color: var(--ps-text);
-}
-.ps-titlebar__path {
-  color: var(--ps-text-2);
-  font: 400 11.5px/1 var(--ps-ui-font);
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.ps-titlebar__actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-left: auto;
-}
 .ps-titlebar .ps-segment { -webkit-app-region: no-drag; }
+html[data-platform="mac"] {
+  --ps-titlebar-h: 0px;
+}
+html[data-platform="mac"] .ps-titlebar { display: none !important; }
+html[data-platform="mac"] .ps-mac-drag {
+  display: block;
+  height: 38px;
+  flex: none;
+  -webkit-app-region: drag;
+}
 
 #wiki-popup {
   position: fixed;
@@ -57,7 +48,9 @@ html, body { overflow: hidden; }
 #utility[hidden],
 #dock[hidden],
 #open-notes[hidden],
-#breadcrumbs[hidden] { display: none !important; }
+#breadcrumbs[hidden],
+#utility-body[hidden],
+#agent-panel[hidden] { display: none !important; }
 
 @media (max-width: 1074px) {
   html[data-shell="vault"] #utility { display: none !important; }

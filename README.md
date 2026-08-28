@@ -23,11 +23,27 @@ Electron 34, no bundler. Open a folder. New notes are `.html`. Last vault is rem
 - Wikilinks: `[[note]]` in Markdown, stored as `<a class="wikilink">` in HTML
 - Search: Cmd/Ctrl+K palette (filename + full text). `>` commands, `#` headings, `[[` notes
 - Backlinks in the inspect rail (linked + unlinked mentions). Local graph on the Graph ribbon icon
+- Agent panel: stdio JSON or HTTP POST. Named presets for pi / Claude Code / Cursor / OpenCode. Proposed edits apply through the vault path guard
 - Create / rename / delete notes and folders
 - Autosave (Unsaved → Saved), Cmd/Ctrl+S
 - Markdown / HTML / CSS+JS tabs on the same document
 - Preview: note HTML + your CSS/JS, `sandbox="allow-scripts"` (not `allow-same-origin`)
 - Path guard: renderer cannot read/write outside the vault
+
+## Agent contract
+
+JSON in, JSON out. `stdio` writes one request line to the command and reads stdout. `http` POSTs the same object.
+
+```json
+{
+  "pitchstone": 1,
+  "message": "user text",
+  "history": [{ "role": "user", "text": "..." }],
+  "note": { "path": "/abs/note.html", "html": "<!DOCTYPE html>..." }
+}
+```
+
+Reply `{ "text": "...", "edits": [{ "path": "note.html", "html": "..." }] }` or plain text. Edits are proposed; Apply still goes through `resolveInVault()`.
 
 ## What does not (yet)
 

@@ -1,4 +1,5 @@
 let currentPath = null
+let vaultFolder = ''
 let selectedPath = null
 let selectedIsDir = false
 let expandedPaths = new Set()
@@ -524,7 +525,12 @@ function setEmptyVault(show) {
 function applyTheme(dark) {
   document.documentElement.classList.toggle('dark', dark)
   const btn = document.getElementById('theme-toggle')
-  if (btn) btn.textContent = dark ? 'Light' : 'Dark'
+  if (btn) {
+    btn.setAttribute(
+      'aria-label',
+      dark ? 'Switch to light theme' : 'Switch to dark theme'
+    )
+  }
   localStorage.setItem('pitchstone-theme', dark ? 'dark' : 'light')
   updatePreview()
 }
@@ -658,17 +664,67 @@ function renderUtility() {
   const body = document.getElementById('utility-body')
   if (!body) return
   const tab = selectedUtil()
+  body.hidden = tab === 'agent'
+  if (tab === 'agent') {
+    placeAgentPanel()
+    return
+  }
+  placeAgentPanel()
   if (tab === 'outline') renderOutline(body)
   else if (tab === 'backlinks') fillBacklinks(body)
-  else body.textContent = UTIL_EMPTY.agent
 }
 
 function renderDock() {
   const body = document.getElementById('dock-body')
   if (!body) return
   const tab = selectedDock()
+  const panel = document.getElementById('agent-panel')
+  if (panel && body.contains(panel)) {
+    document.getElementById('utility').appendChild(panel)
+  }
+  if (tab === 'agent') {
+    body.replaceChildren()
+    placeAgentPanel()
+    return
+  }
   if (tab === 'backlinks') fillBacklinks(body)
   else body.textContent = DOCK_EMPTY[tab] || ''
+}
+
+function placeAgentPanel() {
+  const panel = document.getElementById('agent-panel')
+  if (!panel) return
+  const ide = document.documentElement.dataset.shell === 'ide'
+  const showDock = ide && selectedDock() === 'agent'
+  const showUtil = !ide && selectedUtil() === 'agent'
+  if (showDock) {
+    document.getElementById('dock-body').appendChild(panel)
+    panel.hidden = false
+  } else {
+    document.getElementById('utility').appendChild(panel)
+    panel.hidden = !showUtil
+  }
+}
+
+function showAgent() {
+  const ide = document.documentElement.dataset.shell === 'ide'
+  if (ide) {
+    for (const el of document.querySelectorAll('.ps-dock__tab[data-dock]')) {
+      el.setAttribute(
+        'aria-selected',
+        el.dataset.dock === 'agent' ? 'true' : 'false'
+      )
+    }
+    renderDock()
+  } else {
+    for (const el of document.querySelectorAll('.ps-utility-hdr [data-util]')) {
+      el.setAttribute(
+        'aria-selected',
+        el.dataset.util === 'agent' ? 'true' : 'false'
+      )
+    }
+    renderUtility()
+  }
 }
 
 function svgEl(name, attrs) {
@@ -812,14 +868,27 @@ function noteName() {
 }
 
 function vaultLeaf() {
-  const folder = document.getElementById('path').textContent
-  if (!folder || folder === 'no folder yet') return 'vault'
-  const parts = folder.split(/[/\\]/).filter(Boolean)
+  if (!vaultFolder) return 'vault'
+  const parts = vaultFolder.split(/[/\\]/).filter(Boolean)
   return parts[parts.length - 1] || 'vault'
+}
+
+function setVaultPath(folder) {
+  vaultFolder = folder || ''
+  const el = document.getElementById('path')
+  if (!el) return
+  if (!folder) {
+    el.textContent = 'no folder yet'
+    el.removeAttribute('title')
+    return
+  }
+  el.textContent = vaultLeaf()
+  el.title = folder
 }
 
 function updateChrome() {
   const name = noteName()
+  document.title = currentPath ? name + ' — Pitchstone' : 'Pitchstone'
   const label = document.getElementById('note-tab-label')
   if (label) label.textContent = currentPath ? name : 'untitled'
   const dot = document.getElementById('note-dirty')
@@ -871,6 +940,7 @@ function applyShell(shell) {
   for (const btn of document.querySelectorAll('#shell-toggle [data-shell]')) {
     btn.setAttribute('aria-selected', btn.dataset.shell === (ide ? 'ide' : 'vault') ? 'true' : 'false')
   }
+  placeAgentPanel()
   requestAnimationFrame(() => cm.refresh())
 }
 
@@ -1248,7 +1318,7 @@ function retarget(from, to) {
 
 function expandTo(filePath) {
   let dir = parentOf(filePath)
-  const root = document.getElementById('path').textContent
+  const root = vaultFolder
   while (dir && root && dir.length > root.length) {
     expandedPaths.add(dir)
     const next = parentOf(dir)
@@ -1405,7 +1475,7 @@ async function showVault(folder) {
   buffers.cssjs = ''
   lastBody = 'markdown'
   showTab('markdown')
-  document.getElementById('path').textContent = folder
+  setVaultPath(folder)
   setEmptyVault(false)
   setStatus('')
   updateChrome()
@@ -1621,6 +1691,7 @@ const PALETTE_COMMANDS = [
   { id: 'shell-ide', label: 'Shell: Code' },
   { id: 'graph', label: 'Show graph' },
   { id: 'files', label: 'Show files' },
+  { id: 'agent', label: 'Show agent' },
 ]
 
 function paletteOpen() {
@@ -1852,6 +1923,7 @@ function runPaletteCommand(id) {
   else if (id === 'shell-ide') applyShell('ide')
   else if (id === 'graph') setNavView('graph')
   else if (id === 'files') setNavView('files')
+  else if (id === 'agent') showAgent()
 }
 
 function palettePick() {
@@ -1867,6 +1939,10 @@ function palettePick() {
     void openListedFile({ path: row.path })
   }
 }
+
+document.getElementById('agent-open').addEventListener('click', () => {
+  showAgent()
+})
 
 document.getElementById('files-open').addEventListener('click', () => {
   setNavView('files')
@@ -1915,9 +1991,23 @@ window.addEventListener('keydown', (event) => {
   }
   if (!(event.metaKey || event.ctrlKey) || event.altKey) return
   const key = event.key.toLowerCase()
+  const mac = document.documentElement.dataset.platform === 'mac'
   if (key === 'k') {
+    if (mac) return
     event.preventDefault()
     openPalette(false)
+    return
+  }
+  if (key === 'o') {
+    if (mac) return
+    event.preventDefault()
+    document.getElementById('open').click()
+    return
+  }
+  if (key === 'n') {
+    if (mac) return
+    event.preventDefault()
+    document.getElementById('new-file').click()
     return
   }
   if (key === 'p') {
@@ -1926,6 +2016,7 @@ window.addEventListener('keydown', (event) => {
     return
   }
   if (key === 's') {
+    if (mac) return
     event.preventDefault()
     void saveFile()
   } else if (event.key === '1') {
@@ -1981,9 +2072,146 @@ document.getElementById('empty-open').addEventListener('click', () => {
   document.getElementById('open').click()
 })
 
+const AGENT_PRESETS = {
+  pi: 'pi',
+  claude: 'claude',
+  cursor: 'cursor',
+  opencode: 'opencode',
+}
+let agentHistory = []
+let agentBusy = false
+
+function persistAgentConfig() {
+  const kind = document.getElementById('agent-kind')
+  const target = document.getElementById('agent-target')
+  if (!kind || !target) return
+  void window.api.agentConfigSet({ kind: kind.value, target: target.value.trim() })
+}
+
+async function loadAgentConfig() {
+  const cfg = await window.api.agentConfigGet()
+  const kind = document.getElementById('agent-kind')
+  const target = document.getElementById('agent-target')
+  if (kind) kind.value = cfg.kind || 'stdio'
+  if (target) target.value = cfg.target || ''
+}
+
+function agentLog(role, text, edits) {
+  const log = document.getElementById('agent-log')
+  if (!log) return
+  const wrap = document.createElement('div')
+  wrap.className =
+    'ps-agent__msg' +
+    (role === 'user' ? ' ps-agent__msg--user' : role === 'error' ? ' ps-agent__msg--error' : '')
+  const who = document.createElement('span')
+  who.className = 'ps-agent__who'
+  who.textContent = role === 'user' ? 'YOU' : role === 'error' ? 'ERROR' : 'AGENT'
+  wrap.appendChild(who)
+  wrap.appendChild(document.createTextNode(text || ''))
+  if (edits && edits.length) {
+    for (const edit of edits) {
+      const btn = document.createElement('button')
+      btn.type = 'button'
+      btn.className = 'ps-agent__edit'
+      btn.textContent = 'Apply ' + (edit.rel || 'edit')
+      btn.addEventListener('click', () => {
+        void applyAgentEdit(edit)
+      })
+      wrap.appendChild(btn)
+    }
+  }
+  log.appendChild(wrap)
+  log.scrollTop = log.scrollHeight
+}
+
+async function applyAgentEdit(edit) {
+  const result = await window.api.writeFile(edit.path, edit.html)
+  if (result.error) {
+    setStatus(result.error)
+    return
+  }
+  if (edit.path === currentPath) {
+    dirty = false
+    loadNote(edit.html)
+    showTab(activeTab)
+    setStatus('Saved')
+    updateChrome()
+    updatePreview()
+    void refreshInspect()
+  } else {
+    setStatus('Saved')
+    await refreshFiles()
+  }
+}
+
+document.getElementById('agent-kind').addEventListener('change', () => {
+  const kind = document.getElementById('agent-kind').value
+  const target = document.getElementById('agent-target')
+  const preset = AGENT_PRESETS[kind]
+  if (preset) target.value = preset
+  persistAgentConfig()
+})
+
+document.getElementById('agent-target').addEventListener('change', persistAgentConfig)
+
+document.getElementById('agent-form').addEventListener('submit', async (event) => {
+  event.preventDefault()
+  if (agentBusy) return
+  const input = document.getElementById('agent-input')
+  const message = input.value.trim()
+  if (!message) return
+  persistAgentConfig()
+  input.value = ''
+  agentLog('user', message)
+  agentHistory.push({ role: 'user', text: message })
+  agentBusy = true
+  document.getElementById('agent-send').disabled = true
+  const note = currentPath
+    ? { path: currentPath, html: noteToHtmlFile() }
+    : null
+  const reply = await window.api.agentSend({
+    message,
+    history: agentHistory,
+    note,
+  })
+  agentBusy = false
+  document.getElementById('agent-send').disabled = false
+  if (reply.error) {
+    agentLog('error', reply.error)
+    return
+  }
+  agentLog('assistant', reply.text || '(no text)', reply.edits)
+  agentHistory.push({ role: 'assistant', text: reply.text || '' })
+})
+
+window.api.onMenuAction((id) => {
+  if (id === 'open') document.getElementById('open').click()
+  else if (id === 'new') document.getElementById('new-file').click()
+  else if (id === 'folder') document.getElementById('new-folder').click()
+  else if (id === 'save') void saveFile()
+  else if (id === 'export') document.getElementById('export-md').click()
+  else if (id === 'rename') document.getElementById('rename-file').click()
+  else if (id === 'delete') document.getElementById('delete-file').click()
+  else if (id === 'theme') document.getElementById('theme-toggle').click()
+  else if (id === 'shell-vault') applyShell('vault')
+  else if (id === 'shell-ide') applyShell('ide')
+  else if (id === 'search') openPalette(false)
+  else if (id === 'graph') setNavView('graph')
+  else if (id === 'files') setNavView('files')
+  else if (id === 'agent') showAgent()
+})
+
+function initPlatform() {
+  const p = window.api.platform
+  document.documentElement.dataset.platform =
+    p === 'darwin' ? 'mac' : p === 'win32' ? 'win' : 'linux'
+}
+
+initPlatform()
 initTheme()
 initShell()
 updateChrome()
+void loadAgentConfig()
 
 window.addEventListener('message', (event) => {
   if (event.source !== preview.contentWindow) return

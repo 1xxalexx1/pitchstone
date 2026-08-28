@@ -1,7 +1,8 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron')
+const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const scan = require('./vault-scan')
+const agent = require('./agent-bridge')
 
 let mainWindow = null
 let vaultRoot = null
@@ -10,9 +11,14 @@ const EMPTY_NOTE =
   '<!DOCTYPE html>\n<html>\n<head>\n<meta charset="utf-8">\n</head>\n<body>\n</body>\n</html>\n'
 
 function createWindow() {
+  const isMac = process.platform === 'darwin'
   mainWindow = new BrowserWindow({
     width: 1100,
     height: 720,
+    title: 'Pitchstone',
+    titleBarStyle: isMac ? 'hiddenInset' : 'default',
+    trafficLightPosition: isMac ? { x: 16, y: 12 } : undefined,
+    autoHideMenuBar: !isMac,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -20,6 +26,69 @@ function createWindow() {
     },
   })
   mainWindow.loadFile(path.join(__dirname, 'index.html'))
+}
+
+function sendMenu(id) {
+  if (mainWindow) mainWindow.webContents.send('menu-action', id)
+}
+
+function buildMenu() {
+  const isMac = process.platform === 'darwin'
+  const template = [
+    ...(isMac ? [{ role: 'appMenu' }] : []),
+    {
+      label: 'File',
+      submenu: [
+        {
+          label: 'Open Vault…',
+          accelerator: 'CmdOrCtrl+O',
+          click: () => sendMenu('open'),
+        },
+        { type: 'separator' },
+        {
+          label: 'New Note',
+          accelerator: 'CmdOrCtrl+N',
+          click: () => sendMenu('new'),
+        },
+        { label: 'New Folder', click: () => sendMenu('folder') },
+        { type: 'separator' },
+        {
+          label: 'Save',
+          accelerator: 'CmdOrCtrl+S',
+          click: () => sendMenu('save'),
+        },
+        { label: 'Export Markdown…', click: () => sendMenu('export') },
+        { type: 'separator' },
+        { label: 'Rename…', click: () => sendMenu('rename') },
+        { label: 'Delete…', click: () => sendMenu('delete') },
+        { type: 'separator' },
+        isMac ? { role: 'close' } : { role: 'quit' },
+      ],
+    },
+    { role: 'editMenu' },
+    {
+      label: 'View',
+      submenu: [
+        { label: 'Vault Shell', click: () => sendMenu('shell-vault') },
+        { label: 'Code Shell', click: () => sendMenu('shell-ide') },
+        { type: 'separator' },
+        {
+          label: 'Search',
+          accelerator: 'CmdOrCtrl+K',
+          click: () => sendMenu('search'),
+        },
+        { label: 'Files', click: () => sendMenu('files') },
+        { label: 'Graph', click: () => sendMenu('graph') },
+        { label: 'Agent', click: () => sendMenu('agent') },
+        { type: 'separator' },
+        { label: 'Toggle Theme', click: () => sendMenu('theme') },
+        { type: 'separator' },
+        { role: 'togglefullscreen' },
+      ],
+    },
+    { role: 'windowMenu' },
+  ]
+  return Menu.buildFromTemplate(template)
 }
 
 function resolveInVault(target) {
@@ -32,6 +101,10 @@ function resolveInVault(target) {
 
 function storePath() {
   return path.join(app.getPath('userData'), 'vault.json')
+}
+
+function agentStorePath() {
+  return path.join(app.getPath('userData'), 'agent.json')
 }
 
 async function persistVaultRoot() {
@@ -115,6 +188,8 @@ function htmlNoteName(input) {
 }
 
 app.whenReady().then(async () => {
+  app.setName('Pitchstone')
+  Menu.setApplicationMenu(buildMenu())
   await loadVaultRoot()
   createWindow()
 })
@@ -399,5 +474,68 @@ ipcMain.handle('note-context', async (_event, filePath) => {
     return scan.noteContext(resolved, files)
   } catch (err) {
     return Object.assign(scan.emptyContext(), { error: err.message })
+  }
+})
+
+ipcMain.handle('agent-config-get', async () => {
+  try {
+    return JSON.parse(await fs.promises.readFile(agentStorePath(), 'utf8'))
+  } catch {
+    return { kind: 'stdio', target: '' }
+  }
+})
+
+ipcMain.handle('agent-config-set', async (_event, cfg) => {
+  const kind = String((cfg && cfg.kind) || 'stdio')
+  const target = String((cfg && cfg.target) || '')
+  const next = { kind, target }
+  await fs.promises.writeFile(agentStorePath(), JSON.stringify(next), 'utf8')
+  return next
+})
+
+ipcMain.handle('agent-send', async (_event, payload) => {
+  if (!vaultRoot) return { error: 'Open a vault first.' }
+  let cfg
+  try {
+    cfg = JSON.parse(await fs.promises.readFile(agentStorePath(), 'utf8'))
+  } catch {
+    cfg = { kind: 'stdio', target: '' }
+  }
+  const message = String((payload && payload.message) || '').trim()
+  if (!message) return { error: 'Empty message.' }
+  const history = Array.isArray(payload && payload.history)
+    ? payload.history.slice(-12).map((item) => ({
+        role: item && item.role === 'assistant' ? 'assistant' : 'user',
+        text: String((item && item.text) || '').slice(0, 8000),
+      }))
+    : []
+  const note =
+    payload && payload.note
+      ? {
+          path: String(payload.note.path || ''),
+          html: String(payload.note.html || '').slice(0, 200000),
+        }
+      : null
+  try {
+    const reply = await agent.runAgent(
+      cfg,
+      { pitchstone: 1, message, history, note },
+      vaultRoot
+    )
+    const edits = []
+    for (const item of reply.edits || []) {
+      const target = path.isAbsolute(item.path)
+        ? resolveInVault(item.path)
+        : resolveInVault(path.join(vaultRoot, item.path))
+      if (!target) continue
+      edits.push({
+        path: target,
+        rel: path.relative(vaultRoot, target).replace(/\\/g, '/'),
+        html: item.html,
+      })
+    }
+    return { text: reply.text || '', edits }
+  } catch (err) {
+    return { error: err.message }
   }
 })

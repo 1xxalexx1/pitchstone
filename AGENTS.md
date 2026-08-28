@@ -56,11 +56,12 @@ iframe across a UI rewrite so plugins and notes do not die with the shell.
 | `preload.js` | Forwards `window.api.*` → `ipcRenderer.invoke` |
 | `renderer.js` | Vault UI, tabs, CodeMirror, preview, HTML open/save |
 | `vault-scan.js` | Wikilink / heading / backlink / graph scan (main-process) |
+| `agent-bridge.js` | Agent stdio / HTTP adapters (main-process) |
 | `index.html` | Dark split layout: file list, editor, sandboxed preview |
 
 Working: nested vault tree, wikilinks (`[[note]]` ↔ `<a class="wikilink">`), ⌘K search,
-backlinks, local graph, tabs, HTML save, create/rename/delete notes and folders, drag to
-move, last vault remembered, autosave.
+backlinks, local graph, agent panel (stdio / HTTP), tabs, HTML save, create/rename/delete
+notes and folders, drag to move, last vault remembered, autosave.
 
 ## How we work
 
@@ -97,7 +98,7 @@ move, last vault remembered, autosave.
 - [x] **M9 — Search**: filter the vault by filename and full text.
 - [x] **M10 — Backlinks**: show notes that link here.
 - [x] **M11 — Graph** (optional): local graph of wikilinks. Skip if M10 is enough.
-- [ ] **M12 — Agent panel**: a side panel that talks to **whichever agent you
+- [x] **M12 — Agent panel**: a side panel that talks to **whichever agent you
   run**, via adapters — pi, Cursor, Claude Code, OpenCode, and anything else
   that can speak a documented stdin/stdout or HTTP contract. The app is not
   married to one vendor. Agents may propose vault edits; writes still go
