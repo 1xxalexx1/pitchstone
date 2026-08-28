@@ -15,15 +15,31 @@ html, body { overflow: hidden; }
 }
 #empty-vault[hidden] { display: none !important; }
 .ps-titlebar .ps-segment { -webkit-app-region: no-drag; }
+
 html[data-platform="mac"] {
   --ps-titlebar-h: 0px;
+  --ps-mac-lights: 38px;
 }
-html[data-platform="mac"] .ps-titlebar { display: none !important; }
+html[data-platform="mac"] .ps-titlebar,
 html[data-platform="mac"] .ps-mac-drag {
-  display: block;
-  height: 38px;
-  flex: none;
+  display: none !important;
+}
+html[data-platform="mac"] #icon-rail,
+html[data-platform="mac"] #tree-rail,
+html[data-platform="mac"] #graph-rail {
+  padding-top: var(--ps-mac-lights);
+}
+html[data-platform="mac"] #icon-rail,
+html[data-platform="mac"] #tree-rail,
+html[data-platform="mac"] #graph-rail {
   -webkit-app-region: drag;
+}
+html[data-platform="mac"] #icon-rail button,
+html[data-platform="mac"] #tree-rail button,
+html[data-platform="mac"] #graph-rail button,
+html[data-platform="mac"] .ps-tree,
+html[data-platform="mac"] .ps-graph {
+  -webkit-app-region: no-drag;
 }
 
 #wiki-popup {

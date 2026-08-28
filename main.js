@@ -25,7 +25,17 @@ function createWindow() {
       nodeIntegration: false,
     },
   })
-  mainWindow.loadFile(path.join(__dirname, 'index.html'))
+  mainWindow.loadFile(path.join(__dirname, 'index.html'), {
+    query: { p: process.platform },
+  })
+  if (isMac) {
+    mainWindow.webContents.on('did-finish-load', () => {
+      void mainWindow.webContents.insertCSS(
+        '.ps-titlebar,.ps-mac-drag{display:none!important}' +
+          'html{--ps-titlebar-h:0px}'
+      )
+    })
+  }
 }
 
 function sendMenu(id) {

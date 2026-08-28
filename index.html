@@ -3,6 +3,15 @@
 <head>
   <meta charset="utf-8">
   <title>Pitchstone</title>
+  <script>
+    (function () {
+      var q = new URLSearchParams(location.search).get('p')
+      var ua = String(navigator.platform || '') + ' ' + String(navigator.userAgent || '')
+      var platform = q || (/Mac/i.test(ua) ? 'darwin' : /Win/i.test(ua) ? 'win32' : 'linux')
+      document.documentElement.dataset.platform =
+        platform === 'darwin' ? 'mac' : platform === 'win32' ? 'win' : 'linux'
+    })()
+  </script>
   <link rel="stylesheet" href="node_modules/codemirror/lib/codemirror.css">
   <link rel="stylesheet" href="node_modules/codemirror/addon/hint/show-hint.css">
   <link rel="stylesheet" href="node_modules/codemirror/addon/lint/lint.css">
@@ -78,10 +87,8 @@
         <div class="ps-panel-hdr">OPEN NOTES</div>
         <ul id="open-notes-list" class="ps-tree ps-tree--open"></ul>
       </div>
-      <div class="ps-panel-hdr ps-panel-hdr--files">
-        <span>FILES</span>
-        <span id="path" class="ps-panel-hdr__path">no folder yet</span>
-      </div>
+      <div class="ps-panel-hdr">FILES</div>
+      <div id="path" class="ps-vault-path">no folder yet</div>
       <ul id="files" class="ps-tree"></ul>
       <div id="unresolved-wrap" hidden>
         <div class="ps-panel-hdr">UNRESOLVED LINKS</div>
