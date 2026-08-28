@@ -29,9 +29,9 @@
   </header>
   <div id="workspace" class="ps-workspace">
     <aside id="icon-rail" class="ps-rail ps-rail--ribbon" aria-label="Navigate">
-      <button type="button" class="ps-rail__icon" aria-current="true" title="Files">▤<span class="ps-rail__label">Files</span></button>
-      <button type="button" class="ps-rail__icon" title="Search" disabled>⌕<span class="ps-rail__label">Search</span></button>
-      <button type="button" class="ps-rail__icon" title="Graph" disabled>◈<span class="ps-rail__label">Graph</span></button>
+      <button type="button" class="ps-rail__icon" id="files-open" aria-current="true" title="Files">▤<span class="ps-rail__label">Files</span></button>
+      <button type="button" class="ps-rail__icon" id="search-open" title="Search">⌕<span class="ps-rail__label">Search</span></button>
+      <button type="button" class="ps-rail__icon" id="graph-open" title="Graph">◈<span class="ps-rail__label">Graph</span></button>
       <button type="button" class="ps-rail__icon" title="Agent" disabled>✦<span class="ps-rail__label">Agent</span></button>
       <button type="button" class="ps-rail__icon" title="Plugins" disabled>⬡<span class="ps-rail__label">Plugins</span></button>
       <span class="ps-rail__grow"></span>
@@ -48,6 +48,10 @@
         <div class="ps-panel-hdr">UNRESOLVED LINKS</div>
         <ul id="unresolved" class="ps-tree"></ul>
       </div>
+    </aside>
+    <aside id="graph-rail" class="ps-rail ps-rail--tree ps-rail--graph" hidden aria-label="Graph">
+      <div class="ps-panel-hdr">GRAPH</div>
+      <div id="graph" class="ps-graph"></div>
     </aside>
     <div id="centre" class="ps-centre">
       <div id="empty-vault" class="ps-brand" hidden>
@@ -124,6 +128,19 @@
     </form>
   </dialog>
   <div id="wiki-popup" class="ps-popover" hidden role="listbox" aria-label="Notes"></div>
+  <div id="palette-scrim" class="ps-overlay-scrim" hidden>
+    <div class="ps-palette" role="dialog" aria-label="Search">
+      <div class="ps-palette__input">
+        <input id="palette-input" type="text" placeholder="Search  > commands  # headings  [[ notes" autocomplete="off" spellcheck="false">
+      </div>
+      <div id="palette-results"></div>
+      <div class="ps-palette__footer">
+        <span>↑↓ move</span>
+        <span>↵ open</span>
+        <span>esc close</span>
+      </div>
+    </div>
+  </div>
   <script src="node_modules/codemirror/lib/codemirror.js"></script>
   <script src="node_modules/codemirror/mode/xml/xml.js"></script>
   <script src="node_modules/codemirror/mode/javascript/javascript.js"></script>

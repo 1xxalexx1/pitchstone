@@ -21,6 +21,8 @@ Electron 34, no bundler. Open a folder. New notes are `.html`. Last vault is rem
 
 - Pick a vault, nested folder tree (drag to move)
 - Wikilinks: `[[note]]` in Markdown, stored as `<a class="wikilink">` in HTML
+- Search: Cmd/Ctrl+K palette (filename + full text). `>` commands, `#` headings, `[[` notes
+- Backlinks in the inspect rail (linked + unlinked mentions). Local graph on the Graph ribbon icon
 - Create / rename / delete notes and folders
 - Autosave (Unsaved → Saved), Cmd/Ctrl+S
 - Markdown / HTML / CSS+JS tabs on the same document
@@ -38,10 +40,10 @@ See the roadmap. Saving a `.md` file writes an HTML document to that same path. 
 **After v0:**
 
 1. Nested folders
-2. `[[wikilinks]]` (this)
+2. `[[wikilinks]]`
 3. Search
 4. Backlinks
-5. Graph (optional)
+5. Graph
 6. Agent panel (pi, Cursor, Claude Code, OpenCode, …)
 7. LSP
 8. Sandboxed plugins

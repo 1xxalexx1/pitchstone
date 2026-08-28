@@ -14,4 +14,6 @@ contextBridge.exposeInMainWorld('api', {
   scanWikilinks: () => ipcRenderer.invoke('scan-wikilinks'),
   exportMarkdown: (content, name) =>
     ipcRenderer.invoke('export-markdown', content, name),
+  searchVault: (query) => ipcRenderer.invoke('search-vault', query),
+  noteContext: (filePath) => ipcRenderer.invoke('note-context', filePath),
 })

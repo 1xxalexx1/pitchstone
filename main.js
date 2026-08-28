@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron')
 const path = require('path')
 const fs = require('fs')
+const scan = require('./vault-scan')
 
 let mainWindow = null
 let vaultRoot = null
@@ -271,61 +272,17 @@ ipcMain.handle('delete-file', async (_event, filePath) => {
   }
 })
 
-function flattenFiles(items, folder, into) {
-  for (const item of items) {
-    if (item.isDir) {
-      flattenFiles(item.children, folder ? folder + '/' + item.name : item.name, into)
-    } else if (/\.(html|md)$/i.test(item.name)) {
-      into.push({
-        path: item.path,
-        rel: (folder ? folder + '/' + item.name : item.name).replace(/\\/g, '/'),
-        stem: item.name.replace(/\.(html|md)$/i, ''),
-      })
-    }
-  }
-}
-
-function extractWikiTargets(text) {
-  const seen = {}
-  const add = (raw) => {
-    const t = String(raw || '')
-      .trim()
-      .replace(/\\/g, '/')
-      .replace(/\.html$/i, '')
-    if (t) seen[t] = true
-  }
-  let m
-  const wiki = /\[\[([^\]|\n#]+)(?:\|[^\]]*)?\]\]/g
-  while ((m = wiki.exec(text))) add(m[1])
-  const anchors = /<a\b([^>]+)>/gi
-  while ((m = anchors.exec(text))) {
-    if (!/\bwikilink\b/.test(m[1])) continue
-    const href = /\bhref="([^"]+)"/.exec(m[1])
-    if (href) add(href[1])
-  }
-  return Object.keys(seen)
-}
-
-function matchWikiFile(target, files) {
-  const t = target.replace(/\\/g, '/').replace(/\.html$/i, '').toLowerCase()
-  const rel = files.find((f) => f.rel.replace(/\.html$/i, '').toLowerCase() === t)
-  if (rel) return rel
-  const stem = t.split('/').pop()
-  const hits = files.filter((f) => f.stem.toLowerCase() === stem)
-  return hits.length === 1 ? hits[0] : null
-}
-
 ipcMain.handle('scan-wikilinks', async () => {
   if (!vaultRoot) return { items: [] }
   try {
     const files = []
-    flattenFiles(await listTree(vaultRoot), '', files)
+    scan.flattenFiles(await listTree(vaultRoot), '', files)
     const seen = {}
     const items = []
     for (const file of files) {
       const text = await fs.promises.readFile(file.path, 'utf8')
-      for (const target of extractWikiTargets(text)) {
-        if (matchWikiFile(target, files) || seen[target]) continue
+      for (const target of scan.extractWikiTargets(text)) {
+        if (scan.matchWikiFile(target, files) || seen[target]) continue
         seen[target] = true
         items.push(target)
       }
@@ -334,6 +291,75 @@ ipcMain.handle('scan-wikilinks', async () => {
     return { items }
   } catch (err) {
     return { error: err.message, items: [] }
+  }
+})
+
+ipcMain.handle('search-vault', async (_event, rawQuery) => {
+  const query = String(rawQuery || '').slice(0, 200).trim()
+  if (!vaultRoot) return { error: 'No vault open.', notes: [], hits: [], headings: [] }
+  if (!query) return { notes: [], hits: [], headings: [] }
+  const needle = query.toLowerCase()
+  try {
+    const files = []
+      scan.flattenFiles(await listTree(vaultRoot), '', files)
+    const notes = []
+    const hits = []
+    const headings = []
+    for (const file of files) {
+      const folder = file.rel.includes('/')
+        ? file.rel.slice(0, file.rel.lastIndexOf('/'))
+        : ''
+      const nameHit =
+        file.stem.toLowerCase().includes(needle) ||
+        file.rel.toLowerCase().includes(needle)
+      if (nameHit && notes.length < 40) {
+        notes.push({
+          path: file.path,
+          rel: file.rel,
+          stem: file.stem,
+          folder,
+        })
+      }
+      let st
+      try {
+        st = await fs.promises.stat(file.path)
+      } catch {
+        continue
+      }
+      if (st.size > 1024 * 1024) continue
+      const text = await fs.promises.readFile(file.path, 'utf8')
+      const lines = text.split('\n')
+      let n = 0
+      for (let i = 0; i < lines.length && n < 3 && hits.length < 40; i++) {
+        if (!lines[i].toLowerCase().includes(needle)) continue
+        hits.push({
+          path: file.path,
+          rel: file.rel,
+          stem: file.stem,
+          folder,
+          line: i + 1,
+          preview: scan.previewLine(lines[i]),
+        })
+        n += 1
+      }
+      if (headings.length < 40) {
+        for (const h of scan.extractHeadings(text)) {
+          if (!h.text.toLowerCase().includes(needle)) continue
+          headings.push({
+            path: file.path,
+            rel: file.rel,
+            stem: file.stem,
+            folder,
+            text: h.text,
+            level: h.level,
+          })
+          if (headings.length >= 40) break
+        }
+      }
+    }
+    return { notes, hits, headings }
+  } catch (err) {
+    return { error: err.message, notes: [], hits: [], headings: [] }
   }
 })
 
@@ -352,5 +378,26 @@ ipcMain.handle('export-markdown', async (_event, content, suggestedName) => {
     return { ok: true }
   } catch (err) {
     return { error: err.message }
+  }
+})
+
+ipcMain.handle('note-context', async (_event, filePath) => {
+  if (!vaultRoot || !filePath) return scan.emptyContext()
+  const resolved = resolveInVault(filePath)
+  if (!resolved) return scan.emptyContext()
+  try {
+    const files = []
+    scan.flattenFiles(await listTree(vaultRoot), '', files)
+    for (const file of files) {
+      try {
+        const st = await fs.promises.stat(file.path)
+        file.text = st.size > 1024 * 1024 ? '' : await fs.promises.readFile(file.path, 'utf8')
+      } catch {
+        file.text = ''
+      }
+    }
+    return scan.noteContext(resolved, files)
+  } catch (err) {
+    return Object.assign(scan.emptyContext(), { error: err.message })
   }
 })

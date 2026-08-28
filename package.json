@@ -4,7 +4,8 @@
   "description": "Local vault notes: HTML on disk, Markdown or HTML to edit, sandboxed live preview",
   "main": "main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "test": "node scripts/verify-vault-scan.js"
   },
   "devDependencies": {
     "electron": "^34.0.0"

@@ -4,9 +4,24 @@ let selectedIsDir = false
 let expandedPaths = new Set()
 let treeItems = []
 let unresolvedTargets = []
+let noteCtx = {
+  outline: [],
+  linked: [],
+  unlinked: [],
+  outgoing: [],
+  graph: { current: null, out: [], incoming: [], unresolved: [] },
+}
+let inspectGen = 0
+let navView = 'files'
 let wikiMarks = []
 let wikiIndex = 0
 let wikiRows = []
+let paletteRows = []
+let paletteIndex = 0
+let paletteTimer = null
+let paletteNotesOnly = false
+let paletteQuery = ''
+let paletteGen = 0
 const editor = document.getElementById('editor')
 const preview = document.getElementById('preview')
 const PREVIEW_DELAY_MS = 100
@@ -394,6 +409,7 @@ function schedulePreview() {
     updatePreview()
     markWikilinks()
     updateWikiPopup()
+    if (selectedUtil() === 'outline') renderUtility()
   }, PREVIEW_DELAY_MS)
 }
 
@@ -531,6 +547,264 @@ const DOCK_EMPTY = {
   output: 'No output.',
   backlinks: 'No backlinks yet.',
   agent: 'No agent yet.',
+}
+const SVG_NS = 'http://www.w3.org/2000/svg'
+
+function selectedUtil() {
+  const el = document.querySelector('.ps-utility-hdr [aria-selected="true"]')
+  return (el && el.dataset.util) || 'outline'
+}
+
+function selectedDock() {
+  const el = document.querySelector('.ps-dock__tab[aria-selected="true"]')
+  return (el && el.dataset.dock) || 'problems'
+}
+
+function liveOutline() {
+  const src = bodyHtml()
+  const out = []
+  const html = /<h([1-3])\b[^>]*>([\s\S]*?)<\/h\1>/gi
+  let m
+  while ((m = html.exec(src))) {
+    const title = m[2].replace(/<[^>]+>/g, '').trim()
+    if (title) out.push({ level: Number(m[1]), text: title })
+  }
+  if (out.length) return out
+  const md = buffers.markdown
+  const re = /^(#{1,3})\s+(.+)$/gm
+  while ((m = re.exec(md))) out.push({ level: m[1].length, text: m[2].trim() })
+  return out
+}
+
+function noteRel(item) {
+  return String(item.rel || item.stem || '')
+    .replace(/\.(html|md)$/i, '')
+    .replace(/\\/g, '/')
+}
+
+function fillBacklinks(into) {
+  const linked = noteCtx.linked || []
+  const unlinked = noteCtx.unlinked || []
+  if (!linked.length && !unlinked.length) {
+    into.textContent = UTIL_EMPTY.backlinks
+    return
+  }
+  into.replaceChildren()
+  if (linked.length) {
+    const label = document.createElement('div')
+    label.className = 'ps-inspect-label'
+    label.textContent = 'LINKED'
+    into.appendChild(label)
+    for (const item of linked) {
+      const btn = document.createElement('button')
+      btn.type = 'button'
+      btn.className = 'ps-backlink'
+      const path = document.createElement('span')
+      path.className = 'ps-backlink__path'
+      path.textContent = noteRel(item)
+      const snip = document.createElement('span')
+      snip.className = 'ps-backlink__snip'
+      snip.textContent = item.snippet || ''
+      btn.appendChild(path)
+      btn.appendChild(snip)
+      btn.addEventListener('click', () => {
+        expandTo(item.path)
+        void openListedFile({ path: item.path })
+      })
+      into.appendChild(btn)
+    }
+  }
+  if (unlinked.length) {
+    const label = document.createElement('div')
+    label.className = 'ps-inspect-label'
+    label.textContent = 'UNLINKED'
+    into.appendChild(label)
+    for (const item of unlinked) {
+      const btn = document.createElement('button')
+      btn.type = 'button'
+      btn.className = 'ps-backlink ps-backlink--unlinked'
+      const path = document.createElement('span')
+      path.className = 'ps-backlink__path'
+      path.textContent = noteRel(item)
+      btn.appendChild(path)
+      btn.title = item.snippet || noteRel(item)
+      btn.addEventListener('click', () => {
+        expandTo(item.path)
+        void openListedFile({ path: item.path })
+      })
+      into.appendChild(btn)
+    }
+  }
+}
+
+function renderOutline(into) {
+  const headings = liveOutline()
+  if (!headings.length) {
+    into.textContent = UTIL_EMPTY.outline
+    return
+  }
+  const list = document.createElement('ul')
+  list.className = 'ps-outline'
+  for (const h of headings) {
+    const li = document.createElement('li')
+    li.className = 'ps-outline__item ps-outline__item--h' + h.level
+    li.textContent = h.text
+    list.appendChild(li)
+  }
+  into.replaceChildren(list)
+}
+
+function renderUtility() {
+  const body = document.getElementById('utility-body')
+  if (!body) return
+  const tab = selectedUtil()
+  if (tab === 'outline') renderOutline(body)
+  else if (tab === 'backlinks') fillBacklinks(body)
+  else body.textContent = UTIL_EMPTY.agent
+}
+
+function renderDock() {
+  const body = document.getElementById('dock-body')
+  if (!body) return
+  const tab = selectedDock()
+  if (tab === 'backlinks') fillBacklinks(body)
+  else body.textContent = DOCK_EMPTY[tab] || ''
+}
+
+function svgEl(name, attrs) {
+  const el = document.createElementNS(SVG_NS, name)
+  for (const key of Object.keys(attrs || {})) el.setAttribute(key, attrs[key])
+  return el
+}
+
+function stackYs(count, mid, gap) {
+  if (count < 1) return []
+  const start = mid - ((count - 1) * gap) / 2
+  const out = []
+  for (let i = 0; i < count; i++) out.push(start + i * gap)
+  return out
+}
+
+function graphLabel(text) {
+  const s = String(text || '')
+  return s.length > 14 ? s.slice(0, 13) + '...' : s
+}
+
+function renderGraph() {
+  const host = document.getElementById('graph')
+  if (!host) return
+  const g = noteCtx.graph || {}
+  if (!g.current) {
+    host.replaceChildren()
+    const empty = document.createElement('div')
+    empty.className = 'ps-graph__empty'
+    empty.textContent = currentPath ? 'No links yet.' : 'Open a note.'
+    host.appendChild(empty)
+    return
+  }
+  const incoming = g.incoming || []
+  const out = g.out || []
+  const unresolved = g.unresolved || []
+  const W = 248
+  const gap = 36
+  const mid = 90
+  const extra = unresolved.length ? 56 : 0
+  const H = Math.max(220, mid + (Math.max(incoming.length, out.length, 1) * gap) / 2 + 48 + extra)
+  const cx = W / 2
+  const cy = Math.max(mid, 28 + extra / 2)
+  const inX = 40
+  const outX = W - 40
+  const inYs = stackYs(incoming.length, cy, gap)
+  const outYs = stackYs(out.length, cy, gap)
+  const svg = svgEl('svg', {
+    viewBox: '0 0 ' + W + ' ' + H,
+    width: String(W),
+    height: String(H),
+  })
+  function edge(x1, y1, x2, y2) {
+    svg.appendChild(
+      svgEl('line', {
+        class: 'ps-graph__edge',
+        x1: String(x1),
+        y1: String(y1),
+        x2: String(x2),
+        y2: String(y2),
+      })
+    )
+  }
+  function node(kind, x, y, r, label, attrs) {
+    const group = svgEl('g', { class: 'ps-graph__node ps-graph__' + kind })
+    for (const key of Object.keys(attrs || {})) group.setAttribute(key, attrs[key])
+    group.appendChild(svgEl('circle', { cx: String(x), cy: String(y), r: String(r) }))
+    const text = svgEl('text', { x: String(x), y: String(y + r + 12) })
+    text.textContent = graphLabel(label)
+    group.appendChild(text)
+    svg.appendChild(group)
+  }
+  incoming.forEach((item, i) => {
+    edge(inX, inYs[i], cx - 19, cy)
+    node('in', inX, inYs[i], 12, item.stem, { 'data-path': item.path })
+  })
+  out.forEach((item, i) => {
+    edge(cx + 19, cy, outX, outYs[i])
+    node('out', outX, outYs[i], 12, item.stem, { 'data-path': item.path })
+  })
+  unresolved.forEach((item, i) => {
+    const x = cx - ((unresolved.length - 1) * 36) / 2 + i * 36
+    const y = cy + 64
+    edge(cx, cy + 19, x, y - 8)
+    node('unresolved', x, y, 8, item.target.split('/').pop(), {
+      'data-wiki': item.target,
+    })
+  })
+  node('current', cx, cy, 19, g.current.stem, { 'data-path': g.current.path })
+  svg.addEventListener('click', (event) => {
+    const hit = event.target.closest('[data-path], [data-wiki]')
+    if (!hit) return
+    const wiki = hit.getAttribute('data-wiki')
+    if (wiki) {
+      void openWiki(wiki)
+      return
+    }
+    const filePath = hit.getAttribute('data-path')
+    if (!filePath || filePath === currentPath) return
+    expandTo(filePath)
+    void openListedFile({ path: filePath })
+  })
+  host.replaceChildren(svg)
+}
+
+function setNavView(view) {
+  navView = view === 'graph' ? 'graph' : 'files'
+  document.getElementById('tree-rail').hidden = navView === 'graph'
+  document.getElementById('graph-rail').hidden = navView !== 'graph'
+  document.getElementById('files-open').setAttribute(
+    'aria-current',
+    navView === 'files' ? 'true' : 'false'
+  )
+  document.getElementById('graph-open').setAttribute(
+    'aria-current',
+    navView === 'graph' ? 'true' : 'false'
+  )
+  if (navView === 'graph') renderGraph()
+}
+
+async function refreshInspect() {
+  const gen = ++inspectGen
+  const ctx = currentPath
+    ? await window.api.noteContext(currentPath)
+    : {
+        outline: [],
+        linked: [],
+        unlinked: [],
+        outgoing: [],
+        graph: { current: null, out: [], incoming: [], unresolved: [] },
+      }
+  if (gen !== inspectGen) return
+  noteCtx = ctx && ctx.graph ? ctx : noteCtx
+  renderUtility()
+  renderDock()
+  if (navView === 'graph') renderGraph()
 }
 
 function noteName() {
@@ -901,6 +1175,7 @@ async function refreshUnresolved() {
   const result = await window.api.scanWikilinks()
   unresolvedTargets = result.items || []
   renderUnresolved()
+  void refreshInspect()
 }
 
 function renderUnresolved() {
@@ -1335,19 +1610,331 @@ document.getElementById('export-md').addEventListener('click', async () => {
   setStatus('Exported')
 })
 
+const PALETTE_COMMANDS = [
+  { id: 'open', label: 'Open vault' },
+  { id: 'new', label: 'New note' },
+  { id: 'folder', label: 'New folder' },
+  { id: 'save', label: 'Save' },
+  { id: 'export', label: 'Export Markdown' },
+  { id: 'theme', label: 'Toggle theme' },
+  { id: 'shell-vault', label: 'Shell: Vault' },
+  { id: 'shell-ide', label: 'Shell: Code' },
+  { id: 'graph', label: 'Show graph' },
+  { id: 'files', label: 'Show files' },
+]
+
+function paletteOpen() {
+  const scrim = document.getElementById('palette-scrim')
+  return scrim && !scrim.hidden
+}
+
+function closePalette() {
+  const scrim = document.getElementById('palette-scrim')
+  if (scrim) scrim.hidden = true
+  clearTimeout(paletteTimer)
+}
+
+function openPalette(notesOnly) {
+  hideWikiPopup()
+  paletteNotesOnly = !!notesOnly
+  paletteIndex = 0
+  const scrim = document.getElementById('palette-scrim')
+  const input = document.getElementById('palette-input')
+  scrim.hidden = false
+  input.value = ''
+  input.focus()
+  void fillPalette()
+}
+
+function highlightText(text, query) {
+  const wrap = document.createElement('span')
+  if (!query) {
+    wrap.textContent = text
+    return wrap
+  }
+  const i = text.toLowerCase().indexOf(query.toLowerCase())
+  if (i === -1) {
+    wrap.textContent = text
+    return wrap
+  }
+  wrap.appendChild(document.createTextNode(text.slice(0, i)))
+  const mark = document.createElement('span')
+  mark.className = 'ps-match'
+  mark.textContent = text.slice(i, i + query.length)
+  wrap.appendChild(mark)
+  wrap.appendChild(document.createTextNode(text.slice(i + query.length)))
+  return wrap
+}
+
+function noteFolder(rel) {
+  const i = rel.lastIndexOf('/')
+  return i === -1 ? '' : rel.slice(0, i)
+}
+
+function filterCommands(query) {
+  const q = query.toLowerCase()
+  return PALETTE_COMMANDS.filter((c) => !q || c.label.toLowerCase().indexOf(q) !== -1)
+}
+
+function selectablePalette() {
+  return paletteRows.filter((r) => r.type !== 'group')
+}
+
+async function fillPalette() {
+  const gen = ++paletteGen
+  const input = document.getElementById('palette-input')
+  const raw = input ? input.value : ''
+  const rows = []
+  const pushGroup = (label) => {
+    rows.push({ type: 'group', label })
+  }
+  const pushNote = (n, extra) => {
+    rows.push({
+      type: 'note',
+      path: n.path,
+      stem: n.stem,
+      folder: n.folder || noteFolder(n.rel || ''),
+      extra,
+    })
+  }
+
+  if (raw.startsWith('>')) {
+    pushGroup('COMMANDS')
+    for (const c of filterCommands(raw.slice(1).trim())) {
+      rows.push({ type: 'cmd', id: c.id, label: c.label })
+    }
+  } else if (raw.startsWith('[[')) {
+    const q = raw.slice(2).replace(/\]\]$/, '').toLowerCase()
+    pushGroup('NOTES')
+    for (const n of allNotes()) {
+      if (
+        q &&
+        n.stem.toLowerCase().indexOf(q) === -1 &&
+        n.rel.toLowerCase().indexOf(q) === -1
+      ) {
+        continue
+      }
+      pushNote(n)
+    }
+  } else if (raw.startsWith('#')) {
+    const q = raw.slice(1).trim()
+    if (q) {
+      const result = await window.api.searchVault(q)
+      if (gen !== paletteGen) return
+      pushGroup('HEADINGS')
+      for (const h of result.headings || []) {
+        rows.push({
+          type: 'note',
+          path: h.path,
+          stem: h.text,
+          folder: h.stem,
+          extra: 'H' + h.level,
+        })
+      }
+    }
+  } else if (!raw.trim()) {
+    if (!paletteNotesOnly) {
+      pushGroup('COMMANDS')
+      for (const c of PALETTE_COMMANDS) {
+        rows.push({ type: 'cmd', id: c.id, label: c.label })
+      }
+    }
+    pushGroup('NOTES')
+    for (const n of allNotes().slice(0, 8)) pushNote(n)
+  } else {
+    const result = await window.api.searchVault(raw.trim())
+    if (gen !== paletteGen) return
+    if (result.error) setStatus(result.error)
+    const notes = result.notes || []
+    const hits = result.hits || []
+    if (notes.length) {
+      pushGroup('NOTES')
+      for (const n of notes) pushNote(n)
+    }
+    if (!paletteNotesOnly && hits.length) {
+      pushGroup('FULL TEXT')
+      for (const h of hits) {
+        rows.push({
+          type: 'note',
+          path: h.path,
+          stem: h.stem,
+          folder: 'L' + h.line,
+          extra: h.preview,
+        })
+      }
+    }
+    if (!paletteNotesOnly) {
+      const cmds = filterCommands(raw.trim())
+      if (cmds.length) {
+        pushGroup('COMMANDS')
+        for (const c of cmds) rows.push({ type: 'cmd', id: c.id, label: c.label })
+      }
+    }
+  }
+
+  if (gen !== paletteGen) return
+  paletteRows = rows
+  paletteQuery = raw.startsWith('>') || raw.startsWith('#') || raw.startsWith('[[')
+    ? raw.replace(/^>|^#|^\[\[/, '').replace(/\]\]$/, '')
+    : raw.trim()
+  const sel = selectablePalette()
+  if (paletteIndex >= sel.length) paletteIndex = Math.max(0, sel.length - 1)
+  drawPalette(paletteQuery)
+}
+
+function drawPalette(query) {
+  const box = document.getElementById('palette-results')
+  box.replaceChildren()
+  const sel = selectablePalette()
+  let selAt = 0
+  for (const row of paletteRows) {
+    if (row.type === 'group') {
+      const g = document.createElement('div')
+      g.className = 'ps-palette__group'
+      g.textContent = row.label
+      box.appendChild(g)
+      continue
+    }
+    const btn = document.createElement('button')
+    btn.type = 'button'
+    btn.className = 'ps-palette__row'
+    btn.setAttribute('aria-selected', selAt === paletteIndex ? 'true' : 'false')
+    const i = selAt
+    if (row.type === 'cmd') {
+      btn.appendChild(highlightText(row.label, query))
+    } else {
+      btn.appendChild(highlightText(row.stem, query))
+      if (row.extra) {
+        const extra = document.createElement('span')
+        extra.className = 'ps-popover__folder'
+        extra.textContent = row.extra
+        extra.style.overflow = 'hidden'
+        extra.style.textOverflow = 'ellipsis'
+        extra.style.whiteSpace = 'nowrap'
+        extra.style.maxWidth = '240px'
+        btn.appendChild(extra)
+      } else if (row.folder) {
+        const folder = document.createElement('span')
+        folder.className = 'ps-popover__folder'
+        folder.textContent = row.folder
+        btn.appendChild(folder)
+      }
+    }
+    btn.addEventListener('mousedown', (event) => {
+      event.preventDefault()
+      paletteIndex = i
+      palettePick()
+    })
+    box.appendChild(btn)
+    selAt += 1
+  }
+  const chosen = box.querySelector('[aria-selected="true"]')
+  if (chosen) chosen.scrollIntoView({ block: 'nearest' })
+}
+
+function paletteMove(delta) {
+  const sel = selectablePalette()
+  if (!sel.length) return
+  paletteIndex = (paletteIndex + delta + sel.length) % sel.length
+  drawPalette(paletteQuery)
+}
+
+function runPaletteCommand(id) {
+  closePalette()
+  if (id === 'open') document.getElementById('open').click()
+  else if (id === 'new') document.getElementById('new-file').click()
+  else if (id === 'folder') document.getElementById('new-folder').click()
+  else if (id === 'save') void saveFile()
+  else if (id === 'export') document.getElementById('export-md').click()
+  else if (id === 'theme') {
+    document.getElementById('theme-toggle').click()
+  } else if (id === 'shell-vault') applyShell('vault')
+  else if (id === 'shell-ide') applyShell('ide')
+  else if (id === 'graph') setNavView('graph')
+  else if (id === 'files') setNavView('files')
+}
+
+function palettePick() {
+  const row = selectablePalette()[paletteIndex]
+  if (!row) return
+  if (row.type === 'cmd') {
+    runPaletteCommand(row.id)
+    return
+  }
+  closePalette()
+  if (row.path) {
+    expandTo(row.path)
+    void openListedFile({ path: row.path })
+  }
+}
+
+document.getElementById('files-open').addEventListener('click', () => {
+  setNavView('files')
+})
+
+document.getElementById('graph-open').addEventListener('click', () => {
+  setNavView('graph')
+})
+
+document.getElementById('search-open').addEventListener('click', () => {
+  openPalette(false)
+})
+
+document.getElementById('palette-scrim').addEventListener('mousedown', (event) => {
+  if (event.target.id === 'palette-scrim') closePalette()
+})
+
+document.getElementById('palette-input').addEventListener('input', () => {
+  clearTimeout(paletteTimer)
+  paletteTimer = setTimeout(() => {
+    void fillPalette()
+  }, 80)
+})
+
+document.getElementById('palette-input').addEventListener('keydown', (event) => {
+  if (event.key === 'ArrowDown') {
+    event.preventDefault()
+    paletteMove(1)
+  } else if (event.key === 'ArrowUp') {
+    event.preventDefault()
+    paletteMove(-1)
+  } else if (event.key === 'Enter') {
+    event.preventDefault()
+    palettePick()
+  } else if (event.key === 'Escape') {
+    event.preventDefault()
+    closePalette()
+  }
+})
+
 window.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && paletteOpen()) {
+    event.preventDefault()
+    closePalette()
+    return
+  }
   if (!(event.metaKey || event.ctrlKey) || event.altKey) return
-  const key = event.key
-  if (key.toLowerCase() === 's') {
+  const key = event.key.toLowerCase()
+  if (key === 'k') {
+    event.preventDefault()
+    openPalette(false)
+    return
+  }
+  if (key === 'p') {
+    event.preventDefault()
+    openPalette(true)
+    return
+  }
+  if (key === 's') {
     event.preventDefault()
     void saveFile()
-  } else if (key === '1') {
+  } else if (event.key === '1') {
     event.preventDefault()
     setTab('markdown')
-  } else if (key === '2') {
+  } else if (event.key === '2') {
     event.preventDefault()
     setTab('html')
-  } else if (key === '3') {
+  } else if (event.key === '3') {
     event.preventDefault()
     setTab('cssjs')
   }
@@ -1369,7 +1956,7 @@ document.querySelector('.ps-utility-hdr').addEventListener('click', (event) => {
   for (const el of document.querySelectorAll('.ps-utility-hdr [data-util]')) {
     el.setAttribute('aria-selected', el === btn ? 'true' : 'false')
   }
-  document.getElementById('utility-body').textContent = UTIL_EMPTY[btn.dataset.util]
+  renderUtility()
 })
 
 document.querySelector('.ps-dock__tabs').addEventListener('click', (event) => {
@@ -1387,7 +1974,7 @@ document.querySelector('.ps-dock__tabs').addEventListener('click', (event) => {
   for (const el of document.querySelectorAll('.ps-dock__tab[data-dock]')) {
     el.setAttribute('aria-selected', el === btn ? 'true' : 'false')
   }
-  document.getElementById('dock-body').textContent = DOCK_EMPTY[btn.dataset.dock]
+  renderDock()
 })
 
 document.getElementById('empty-open').addEventListener('click', () => {

@@ -52,10 +52,16 @@ html, body { overflow: hidden; }
   border-top: 1px solid var(--cs-sidebar-border);
 }
 #unresolved-wrap .ps-tree { flex: none; max-height: 160px; }
+#tree-rail[hidden],
+#graph-rail[hidden],
+#utility[hidden],
+#dock[hidden],
+#open-notes[hidden],
+#breadcrumbs[hidden] { display: none !important; }
 
 @media (max-width: 1074px) {
   html[data-shell="vault"] #utility { display: none !important; }
 }
 @media (max-width: 812px) {
-  #tree-rail { display: none !important; }
+  #tree-rail, #graph-rail { display: none !important; }
 }
