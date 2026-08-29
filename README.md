@@ -36,6 +36,8 @@ The panel is a client. The agent is a long-lived process that speaks [ACP](https
 
 Start `claude --acp` (or another ACP command). Send keeps the session. The vault is the agent's cwd. Current note is attached as a resource. Streaming text, tool cards, and permission prompts show in the thread. `fs/read_text_file` and `fs/write_text_file` are served from main and still go through `resolveInVault()`.
 
+OpenCode: install the CLI, pick the OpenCode preset (`opencode acp`). ACP defaults to their free `opencode/big-pickle` model; no API key for that path. `OPENCODE_BIN=/path/to/opencode npm test` runs a live ACP handshake against it.
+
 `json` and `http` are the old one-shot contract if you want a custom script:
 
 ```json
