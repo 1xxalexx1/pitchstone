@@ -1,0 +1,36 @@
+:root {
+  --font-brand-display: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --cs-font-family-heading: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --cs-font-family-body: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+
+  --cs-font-weight-regular: 400;
+  --cs-font-weight-medium: 500;
+  --cs-font-weight-bold: 700;
+
+  --cs-font-size-body-xs: 0.75rem;
+  --cs-font-size-body-sm: 0.875rem;
+  --cs-font-size-body-md: 1rem;
+  --cs-font-size-body-lg: 1.125rem;
+  --cs-font-size-heading-xs: 1.25rem;
+  --cs-font-size-heading-sm: 1.5rem;
+  --cs-font-size-heading-md: 2rem;
+  --cs-font-size-heading-lg: 2.5rem;
+  --cs-font-size-heading-xl: 3rem;
+  --cs-font-size-heading-2xl: 3.75rem;
+
+  --cs-line-height-body-xs: 1.25rem;
+  --cs-line-height-body-sm: 1.5rem;
+  --cs-line-height-body-md: 1.5rem;
+  --cs-line-height-body-lg: 1.75rem;
+  --cs-line-height-heading-xs: 2rem;
+  --cs-line-height-heading-sm: 2.5rem;
+  --cs-line-height-heading-md: 3rem;
+  --cs-line-height-heading-lg: 3.75rem;
+  --cs-line-height-heading-xl: 5rem;
+}
+
+.brand-display {
+  font-family: var(--cs-font-family-heading);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}

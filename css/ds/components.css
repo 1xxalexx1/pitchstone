@@ -1,0 +1,49 @@
+/* BearCherry component styles — plain CSS, all values via --cs-* custom properties.
+   Class names are BearCherry-local (bcs- prefix); they are NOT Cherry's Tailwind
+   utility classes, but resolve to the same token values so the retone matches. */
+
+.bcs-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;border-radius:var(--cs-radius-md);font-family:var(--cs-font-family-body);font-weight:var(--cs-font-weight-regular);font-size:13px;min-height:30px;padding:0 10px;border:none;cursor:pointer;transition:background-color .15s,color .15s,border-color .15s;box-shadow:0 1px 2px oklch(0 0 0/.04)}
+.bcs-btn:disabled{pointer-events:none;opacity:.4}
+.bcs-btn-default{background:var(--cs-foreground);color:var(--cs-card)}
+.bcs-btn-default:hover{filter:brightness(1.08)}
+.dark .bcs-btn-default{background:#fafafa;color:#18181b}
+.dark .bcs-btn-default:hover{background:#e4e4e7}
+.bcs-btn-primary{background:var(--cs-primary);color:var(--cs-primary-foreground);box-shadow:0 1px 2px oklch(0 0 0/.06)}
+.bcs-btn-primary:hover{filter:brightness(1.08)}
+.bcs-btn-outline{background:transparent;color:var(--cs-foreground);border:1px solid var(--cs-border);box-shadow:none}
+.bcs-btn-outline:hover{background:var(--cs-accent)}
+.bcs-btn-secondary{background:var(--cs-secondary);color:var(--cs-secondary-foreground);border-radius:var(--cs-radius-lg);box-shadow:none}
+.bcs-btn-secondary:hover{background:var(--cs-secondary-hover)}
+.bcs-btn-ghost{background:transparent;color:var(--cs-foreground);box-shadow:none}
+.bcs-btn-ghost:hover{background:var(--cs-accent)}
+.bcs-btn-destructive{background:var(--cs-destructive);color:var(--cs-white)}
+.bcs-btn-destructive:hover{background:var(--cs-destructive-hover)}
+.bcs-btn-sm{min-height:28px;padding:0 10px;font-size:12px}
+.bcs-btn-lg{min-height:36px;padding:0 16px;font-size:14px}
+.bcs-btn-icon{width:36px;height:36px;padding:0}
+
+.bcs-input{width:100%;box-sizing:border-box;height:36px;border-radius:var(--cs-radius-md);border:1px solid var(--cs-input);background:transparent;color:var(--cs-foreground);padding:0 12px;font-family:var(--cs-font-family-body);font-size:var(--cs-font-size-body-sm);outline:none;transition:border-color .15s}
+.bcs-input::placeholder{color:var(--cs-muted-foreground)}
+.bcs-input:focus-visible{border-color:var(--cs-primary)}
+.bcs-input:disabled{opacity:.5;cursor:not-allowed}
+
+.bcs-switch{position:relative;display:inline-flex;align-items:center;width:44px;height:22px;border-radius:var(--cs-radius-round);border:none;cursor:pointer;background:oklch(0.5 0.02 250/.25);transition:background-color .15s;flex-shrink:0;box-shadow:0 1px 2px oklch(0 0 0/.06)}
+.bcs-switch[data-on="true"]{background:var(--cs-primary)}
+.bcs-switch:disabled{cursor:not-allowed;opacity:.4}
+.bcs-switch-thumb{position:absolute;top:1.5px;left:1.5px;width:19px;height:19px;border-radius:50%;background:var(--cs-white);transition:transform .15s}
+.bcs-switch[data-on="true"] .bcs-switch-thumb{transform:translateX(21px)}
+
+.bcs-badge{display:inline-flex;align-items:center;gap:4px;border-radius:var(--cs-radius-round);padding:2px 8px;font-size:12px;font-weight:var(--cs-font-weight-medium);border:1px solid transparent;white-space:nowrap}
+.bcs-badge-default{background:var(--cs-background-subtle);color:var(--cs-secondary-foreground)}
+.bcs-badge-secondary{background:var(--cs-secondary);color:var(--cs-secondary-foreground)}
+.bcs-badge-success{background:var(--cs-success);color:var(--cs-primary-foreground);border-color:transparent}
+.bcs-badge-warning{background:var(--cs-warning);color:oklch(0.2 0.02 40)}
+.bcs-badge-destructive{color:var(--cs-destructive);background:color-mix(in oklch,var(--cs-destructive) 12%,transparent)}
+.bcs-badge-outline{color:var(--cs-foreground);border-color:var(--cs-border)}
+
+.bcs-card{background:var(--cs-card);color:var(--cs-card-foreground);border:1px solid var(--cs-border);border-radius:var(--cs-radius-xl);padding:20px}
+.bcs-card-glass{background:var(--cs-sidebar);color:var(--cs-sidebar-foreground);border:1px solid var(--cs-sidebar-border);border-radius:var(--cs-radius-2xl);backdrop-filter:blur(var(--cs-surface-blur)) saturate(var(--cs-surface-saturate));-webkit-backdrop-filter:blur(var(--cs-surface-blur)) saturate(var(--cs-surface-saturate));padding:20px;position:relative;overflow:hidden}
+
+.bcs-page-header{display:flex;align-items:center;justify-content:space-between;height:32px;margin:12px 0 8px;padding:0 12px 0 20px;gap:8px}
+.bcs-page-header h2{margin:0;font-family:var(--cs-font-family-heading);font-weight:var(--cs-font-weight-medium);font-size:var(--cs-font-size-body-sm);color:var(--cs-foreground);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bcs-page-header-bordered{border-bottom:1px solid var(--cs-border)}
