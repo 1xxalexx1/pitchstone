@@ -6,7 +6,7 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "test": "node scripts/verify-vault-scan.js && node scripts/verify-agent-bridge.js"
+    "test": "node scripts/verify-vault-scan.js && node scripts/verify-agent-bridge.js && node scripts/verify-opencode-acp.js"
   },
   "devDependencies": {
     "electron": "^34.0.0"
